@@ -1,0 +1,37 @@
+
+$SCRIPT_THROUGHPUT_PLOT TPCC_A $NB_SOLUTIONS\
+TPCC_A_usePCWM_avg.tsv \
+TPCC_A_usePCWM_stdev.tsv \
+TPCC_A_usePCWM2_avg.tsv \
+TPCC_A_usePCWM2_stdev.tsv \
+TPCC_A_usePCWM3_avg.tsv \
+TPCC_A_usePCWM3_stdev.tsv \
+TPCC_A_usePhysicalClocks_avg.tsv \
+TPCC_A_usePhysicalClocks_stdev.tsv \
+TPCC_A_useLogicalClocks_avg.tsv \
+TPCC_A_useLogicalClocks_stdev.tsv \
+TPCC_A_useCcHTMbest_avg.tsv \
+TPCC_A_useCcHTMbest_stdev.tsv \
+TPCC_A_useCrafty_avg.tsv \
+TPCC_A_useCrafty_stdev.tsv \
+TPCC_A_usePSTM_avg.tsv \
+TPCC_A_usePSTM_stdev.tsv \
+
+
+$SCRIPT_ABORT_PLOT TPCC_A $NB_SOLUTIONS\
+TPCC_A_usePCWM_avg.tsv \
+TPCC_A_usePCWM_stdev.tsv \
+TPCC_A_usePCWM2_avg.tsv \
+TPCC_A_usePCWM2_stdev.tsv \
+TPCC_A_usePCWM3_avg.tsv \
+TPCC_A_usePCWM3_stdev.tsv \
+TPCC_A_usePhysicalClocks_avg.tsv \
+TPCC_A_usePhysicalClocks_stdev.tsv \
+TPCC_A_useLogicalClocks_avg.tsv \
+TPCC_A_useLogicalClocks_stdev.tsv \
+TPCC_A_useCcHTMbest_avg.tsv \
+TPCC_A_useCcHTMbest_stdev.tsv \
+TPCC_A_useCrafty_avg.tsv \
+TPCC_A_useCrafty_stdev.tsv \
+TPCC_A_usePSTM_avg.tsv \
+TPCC_A_usePSTM_stdev.tsv \

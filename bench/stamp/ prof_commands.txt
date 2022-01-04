@@ -1,0 +1,33 @@
+
+
+$SCRIPT_PROF_MULTIPLOT 2 \
+$NB_SOLUTIONS \
+VACATION_LOW_usePCWM_avg.tsv \
+VACATION_LOW_usePCWM_stdev.tsv \
+VACATION_LOW_usePCWM2_avg.tsv \
+VACATION_LOW_usePCWM2_stdev.tsv \
+VACATION_LOW_usePCWM3_avg.tsv \
+VACATION_LOW_usePCWM3_stdev.tsv \
+VACATION_LOW_usePhysicalClocks_avg.tsv \
+VACATION_LOW_usePhysicalClocks_stdev.tsv \
+VACATION_LOW_useLogicalClocks_avg.tsv \
+VACATION_LOW_useLogicalClocks_stdev.tsv \
+VACATION_LOW_useCcHTMbest_avg.tsv \
+VACATION_LOW_useCcHTMbest_stdev.tsv \
+VACATION_LOW_useCrafty_avg.tsv \
+VACATION_LOW_useCrafty_stdev.tsv \
+$NB_SOLUTIONS \
+INTRUDER_usePCWM_avg.tsv \
+INTRUDER_usePCWM_stdev.tsv \
+INTRUDER_usePCWM2_avg.tsv \
+INTRUDER_usePCWM2_stdev.tsv \
+INTRUDER_usePCWM3_avg.tsv \
+INTRUDER_usePCWM3_stdev.tsv \
+INTRUDER_usePhysicalClocks_avg.tsv \
+INTRUDER_usePhysicalClocks_stdev.tsv \
+INTRUDER_useLogicalClocks_avg.tsv \
+INTRUDER_useLogicalClocks_stdev.tsv \
+INTRUDER_useCcHTMbest_avg.tsv \
+INTRUDER_useCcHTMbest_stdev.tsv \
+INTRUDER_useCrafty_avg.tsv \
+INTRUDER_useCrafty_stdev.tsv 
