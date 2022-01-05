@@ -3,6 +3,7 @@
 void *pstm_nvram_ptr = NULL;
 void *pstm_nvram_heap_ptr = NULL;
 void *pstm_nvram_logs_ptr = NULL;
+void *pstm_nvram_logs_root_ptr;
 void *pstm_nvram_priv_heap_ptr = NULL;
 
 __thread void *pstm_nvram_pri_ptr = NULL;
@@ -42,17 +43,18 @@ static void *alocateInNVRAM(const char *memRegion, const char *file, size_t byte
   return res;
 }
 
-void NVMCreate() {
+void pstm_nvm_create() {
   pstm_nvram_ptr = alocateInNVRAM("/mnt/pmem0/ysha/tinystm-pm/", "nvmalloc_file_shar_heap",
-    pstm_shared_heap_size +
-    pstm_heap_size_per_thread * 64,
-    // pstm_log_size_per_thread * sizeof(w_entry_t) * 64,
+    PSTM_SHARE_HEAP_SIZE +
+    PSTM_HEAP_SIZE_PER_THREAD * 64,
+    // PSTM_LOG_SIZE_per_thread * sizeof(w_entry_t) * 64,
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
   pstm_nvram_heap_ptr = pstm_nvram_ptr;
-  pstm_nvram_priv_heap_ptr = (void*)(((uintptr_t)pstm_nvram_ptr) + pstm_shared_heap_size);
-  pstm_nvram_logs_ptr = alocateInNVRAM("/mnt/pmem0/ysha/tinystm-pm/", "nvmalloc_file_shar_log",
-    pstm_log_size,
+  pstm_nvram_priv_heap_ptr = (void*)(((uintptr_t)pstm_nvram_ptr) + PSTM_SHARE_HEAP_SIZE);
+  pstm_nvram_logs_root_ptr = alocateInNVRAM("/mnt/pmem0/ysha/tinystm-pm/", "nvmalloc_file_shar_log",
+    sizeof(log_root) + PSTM_LOG_SIZE,
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
+  pstm_nvram_logs_ptr = (void*)(((uintptr_t)pstm_nvram_logs_root_ptr) + sizeof(log_root));
 }
 
 void *pstm_nvmalloc(long size)
@@ -64,7 +66,7 @@ void *pstm_nvmalloc(long size)
     size &= ~0x7L;
   }
   void *ptr = (void*)__sync_fetch_and_add(&pstm_nvram_heap_ptr, size);
-  if ((uintptr_t)ptr + size > (uintptr_t)pstm_nvram_ptr + pstm_shared_heap_size) {
+  if ((uintptr_t)ptr + size > (uintptr_t)pstm_nvram_ptr + PSTM_SHARE_HEAP_SIZE) {
     printf("[nvmalloc]: out of space\n");
     return (void*)-1;
   }
@@ -73,10 +75,10 @@ void *pstm_nvmalloc(long size)
 
 void *pstm_local_nvmalloc(int threadId, long size)
 {
-  uintptr_t base = (uintptr_t)pstm_nvram_priv_heap_ptr + pstm_heap_size_per_thread * threadId;
+  uintptr_t base = (uintptr_t)pstm_nvram_priv_heap_ptr + PSTM_HEAP_SIZE_PER_THREAD * threadId;
 
   if (pstm_nvram_pri_ptr == NULL) {
-    pstm_nvram_pri_ptr = (void*)((uintptr_t)pstm_nvram_priv_heap_ptr + pstm_heap_size_per_thread * threadId);
+    pstm_nvram_pri_ptr = (void*)((uintptr_t)pstm_nvram_priv_heap_ptr + PSTM_HEAP_SIZE_PER_THREAD * threadId);
   }
 
   // void **nvram_mem_pos = &pstm_nvram_pri_ptr;
@@ -86,7 +88,7 @@ void *pstm_local_nvmalloc(int threadId, long size)
     size &= ~0x7L;
   }
   void *ptr = (void*)__sync_fetch_and_add(&pstm_nvram_pri_ptr, size);
-  if ((uintptr_t)ptr + size > base + pstm_heap_size_per_thread) {
+  if ((uintptr_t)ptr + size > base + PSTM_HEAP_SIZE_PER_THREAD) {
     printf("[local_nvmalloc %i]: out of space\n", threadId);
     return (void*)-1;
   }

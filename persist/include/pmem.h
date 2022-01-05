@@ -57,18 +57,36 @@
   } \
 
 
+#define PSTM_HEAP_SIZE_PER_THREAD (4*1024*1024*1024)
+#define PSTM_SHARE_HEAP_SIZE (8*1024*1024*1024)
+#define PSTM_LOG_SIZE (4*1024*1024*1024)
 
-static const long pstm_heap_size_per_thread = 4*1024*1024*1024;
-static const long pstm_shared_heap_size = 8*1024*1024*1024;
-static const long pstm_log_size = 4*1024*1024*1024;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 extern void *pstm_nvram_ptr;
 extern void *pstm_nvram_heap_ptr;
 extern void *pstm_nvram_logs_ptr;
+extern void *pstm_nvram_logs_root_ptr;
 extern void *pstm_nvram_priv_heap_ptr;
 
 extern __thread void *pstm_nvram_pri_ptr;
 
+typedef struct log_root {
+  uint64_t crash;
+  uint64_t log_start_off;
+  uint64_t log_end_off;
+  uint64_t padding[510];
+} __attribute__((packed)) log_root_t;
+
+void pstm_nvm_create();
 void *pstm_nvmalloc(long);
 void *pstm_local_nvmalloc(int, long);
+
+#ifdef __cplusplus
+}
+#endif
 #endif

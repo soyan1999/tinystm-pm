@@ -7,11 +7,7 @@
 
 #define ARCH_CACHE_LINE_SIZE    64
 
-# ifndef SMALL_POOL
-# define POOL_SIZE              (1 * 1024 * 1024 * 1024)
-# else
-# define POOL_SIZE              (128 * 1024 * 1024)
-# endif
+
 
 
 #ifdef __cplusplus
@@ -52,7 +48,7 @@ typedef union cache_line_ {
     int32_t localMallocSize;
     int32_t spinsFlush;
     int32_t epochTimeout;
-  } __attribute__((packed())) info;
+  } __attribute__((packed)) info;
   volatile uint64_t ts; /* padded TS */
   volatile uint64_t padding[8]; /* >64B, TODO: lots of aborts using 8 */
 } __attribute__((aligned(ARCH_CACHE_LINE_SIZE))) cache_line_s;
