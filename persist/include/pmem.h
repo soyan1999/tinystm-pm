@@ -20,6 +20,9 @@
 
 #include <pthread.h>
 
+#include "global.h"
+#include "vlog.h"
+
 #define FLUSH_X86_INST       "clwb"
 // #define FLUSH_X86_INST    "clflushopt"
 // #define FLUSH_X86_INST    "clflush"
@@ -79,10 +82,11 @@ typedef struct log_root {
   uint64_t crash;
   uint64_t log_start_off;
   uint64_t log_end_off;
-  uint64_t padding[510];
+  uint64_t padding[509];
 } __attribute__((packed)) log_root_t;
 
-void pstm_nvm_create();
+void pstm_nvm_create(int numThread);
+void pstm_nvm_close();
 void *pstm_nvmalloc(long);
 void *pstm_local_nvmalloc(int, long);
 

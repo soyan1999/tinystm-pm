@@ -28,7 +28,7 @@ void pstm_vlog_init_thread();
 void pstm_vlog_clear();
 void pstm_vlog_collect(void *addr, uint64_t value);
 void pstm_vlog_commit(uint64_t ts);
-
+void pstm_vlog_free();
 
 #ifdef __cplusplus
 }

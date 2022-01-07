@@ -134,3 +134,11 @@ void pstm_plog_collect() {
   if (combine_table == NULL) combine_table = new CombineTable();
   combine_table->insert(thread_id);
 }
+
+void pstm_plog_end() {
+  log_root_t *log_root = (log_root_t *)pstm_nvram_logs_root_ptr;
+  
+  log_root->crash = 0;
+  FLUSH_CL(&log_root->crash);
+  FENCE_PREV_FLUSHES();
+}

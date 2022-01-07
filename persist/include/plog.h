@@ -16,6 +16,7 @@ extern "C" {
 
 void pstm_plog_init();
 void pstm_plog_collect();
+void pstm_plog_end();
 
 #ifdef __cplusplus
 }

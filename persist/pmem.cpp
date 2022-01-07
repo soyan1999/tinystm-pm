@@ -43,10 +43,10 @@ static void *alocateInNVRAM(const char *memRegion, const char *file, size_t byte
   return res;
 }
 
-void pstm_nvm_create() {
+void pstm_nvm_create(int numThread) {
   pstm_nvram_ptr = alocateInNVRAM("/mnt/pmem0/ysha/tinystm-pm/", "nvmalloc_file_shar_heap",
     PSTM_SHARE_HEAP_SIZE +
-    PSTM_HEAP_SIZE_PER_THREAD * 64,
+    PSTM_HEAP_SIZE_PER_THREAD * numThread,
     // PSTM_LOG_SIZE_per_thread * sizeof(w_entry_t) * 64,
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
   pstm_nvram_heap_ptr = pstm_nvram_ptr;
@@ -55,6 +55,13 @@ void pstm_nvm_create() {
     sizeof(log_root) + PSTM_LOG_SIZE,
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
   pstm_nvram_logs_ptr = (void*)(((uintptr_t)pstm_nvram_logs_root_ptr) + sizeof(log_root));
+}
+
+void pstm_nvm_close() {
+  int ret = munmap(pstm_nvram_ptr, PSTM_SHARE_HEAP_SIZE + PSTM_HEAP_SIZE_PER_THREAD * thread_count);
+  assert(ret == 0);
+  ret = munmap(pstm_nvram_logs_root_ptr, sizeof(log_root) + PSTM_LOG_SIZE);
+  assert(ret == 0);
 }
 
 void *pstm_nvmalloc(long size)

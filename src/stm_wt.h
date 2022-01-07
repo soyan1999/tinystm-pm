@@ -26,6 +26,8 @@
 #ifndef _STM_WT_H_
 #define _STM_WT_H_
 
+#include "persist.h"
+
 static INLINE int
 stm_wt_validate(stm_tx_t *tx)
 {
@@ -328,6 +330,7 @@ stm_wt_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_word
           if (mask != ~(stm_word_t)0)
             value = (ATOMIC_LOAD(addr) & ~mask) | (value & mask);
           ATOMIC_STORE(addr, value);
+          pstm_after_store(addr, value);
           return w;
         }
         if (prev->next == NULL) {
@@ -431,6 +434,7 @@ do_write:
     if (mask != ~(stm_word_t)0)
       value = (w->value & ~mask) | (value & mask);
     ATOMIC_STORE(addr, value);
+    pstm_after_store(addr, value);
   }
   w->next = NULL;
   if (prev != NULL) {
@@ -502,6 +506,7 @@ stm_wt_WaW(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_word_t
     value = (ATOMIC_LOAD(addr) & ~mask) | (value & mask);
   }
   ATOMIC_STORE(addr, value);
+  pstm_after_store(addr, value);
 }
 
 static INLINE int
@@ -569,7 +574,7 @@ stm_wt_commit(stm_tx_t *tx)
   /* TODO: is ATOMIC_MB_WRITE required? */
   ATOMIC_MB_WRITE;
 end:
-  return 1;
+  return t;
 }
 
 #endif /* _STM_WT_H_ */

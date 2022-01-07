@@ -28,12 +28,12 @@ rm lib/thread.h
 rm lib/thread.c
 rm lib/tm.h
 
-cp ../backends/$backend/Defines.common.mk .
-cp ../backends/$backend/Makefile .
-cp ../backends/$backend/Makefile.flags .
-cp ../backends/$backend/thread.h lib/
-cp ../backends/$backend/thread.c lib/
-cp ../backends/$backend/tm.h lib/
+cp ../backend/$backend/Defines.common.mk .
+cp ../backend/$backend/Makefile .
+cp ../backend/$backend/Makefile.flags .
+cp ../backend/$backend/thread.h lib/
+cp ../backend/$backend/thread.c lib/
+cp ../backend/$backend/tm.h lib/
 
 CPU_FREQ=$(cat CPU_FREQ_kHZ.txt | tr -d '[:space:]')
 for F in $FOLDERS

@@ -3,6 +3,8 @@
 
 #  include <stdio.h>
 
+#include "persist.h"
+
 #ifndef REDUCED_TM_API
 
 #  define MAIN(argc, argv)              int main (int argc, char** argv)
@@ -20,8 +22,8 @@
 #  define TM_PRINT2                     printf
 #  define TM_PRINT3                     printf
 
-#  define P_MEMORY_STARTUP(numThread)   /* nothing */
-#  define P_MEMORY_SHUTDOWN()           /* nothing */
+#  define P_MEMORY_STARTUP(numThread)   pstm_before_tm_start(numThread)
+#  define P_MEMORY_SHUTDOWN()           pstm_after_tm_exit()
 
 #  include <assert.h>
 #  include "memory.h"
@@ -49,16 +51,16 @@ static int pstm_nb_threads;
 #  define TM_END_WAIVER()
 
 // outside the TX
-# define S_MALLOC                       pstm_nvmalloc
+# define S_MALLOC(_size)                ({ void *_PTR = pstm_nvmalloc(_size); PADDR_TO_VADDR(_PTR); })
 # define S_FREE(ptr)                    /* empty */
 
-# define P_MALLOC(_size)                ({ void *_PTR = pstm_local_nvmalloc(thread_getId(), _size); /*onBeforeWrite(HTM_SGL_tid, _ptr, 0);*/ _PTR; })
-# define P_MALLOC_THR(_size, _thr)      ({ void *_PTR = pstm_local_nvmalloc(_thr, _size); /*onBeforeWrite(HTM_SGL_tid, _ptr, 0);*/ _PTR; })
+# define P_MALLOC(_size)                ({ void *_PTR = pstm_local_nvmalloc(thread_getId(), _size); PADDR_TO_VADDR(_PTR); })
+# define P_MALLOC_THR(_size, _thr)      ({ void *_PTR = pstm_local_nvmalloc(_thr, _size); PADDR_TO_VADDR(_PTR); })
 # define P_FREE(ptr)                    /* empty */
 
 // inside the TX
 // TODO: cannot write twice to the same memory location
-# define TM_MALLOC(_size)               pstm_local_nvmalloc(thread_getId(), _size)
+# define TM_MALLOC(_size)               ({ void *_PTR = pstm_local_nvmalloc(thread_getId(), _size); PADDR_TO_VADDR(_PTR); })
 # define TM_FREE(ptr)                   /* TODO */
 
 # define SETUP_NUMBER_TASKS(n)
@@ -111,11 +113,11 @@ static int pstm_nb_threads;
 #endif /* end NPROFILE */
 
 # define TM_THREAD_ENTER() \
-  stm_init_thread() \
+  {stm_init_thread();pstm_after_thread_start();} \
 //
 
 # define TM_THREAD_EXIT() \
-  stm_exit_thread() \
+  {pstm_before_thread_exit();stm_exit_thread();} \
 //
 
 # define IS_LOCKED(lock)        *((volatile int*)(&lock)) != 0
@@ -129,7 +131,7 @@ do { \
 //
 
 # define TM_END() \
-  stm_commit() \
+  {int ts = stm_commit();pstm_after_tx_commit(ts);!!ts} \
 //
 
 # define TM_RESTART()                  stm_abort(0)

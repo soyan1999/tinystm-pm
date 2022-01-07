@@ -86,9 +86,9 @@ static int pstm_nb_threads;
 #  define SPECIAL_THREAD_ID()          thread_getId()
 #endif
 
-# define TM_STARTUP(numThread)
+# define TM_STARTUP(numThread)         pobj_before_tm_start()
 
-# define TM_SHUTDOWN()
+# define TM_SHUTDOWN()                 pobj_after_tm_end()
 
 
 #ifndef NPROFILE /* do profile */
