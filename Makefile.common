@@ -14,11 +14,12 @@ TM = stm
 SRCDIR = $(ROOT)/src
 INCDIR = $(ROOT)/include
 LIBDIR = $(ROOT)/lib
+PSTDIR = $(ROOT)/persist
 TMLIB = $(LIBDIR)/lib$(TM).a
 
 # Supposing all compilers has -I -L
 # TODO -I$(SRCDIR) only for library build
-CPPFLAGS += -I$(INCDIR) -I$(SRCDIR)
+CPPFLAGS += -I$(INCDIR) -I$(SRCDIR) -I$(PSTDIR)/include
 
 # Disable assert for non-debug build
 ifneq ($(CFG),debug)

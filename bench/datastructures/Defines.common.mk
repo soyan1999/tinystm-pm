@@ -7,7 +7,7 @@ CFLAGS   += -I $(LIB)
 CPP      := g++
 CPPFLAGS += $(CFLAGS)
 LD       := g++
-LIBS     := -lpthread -lpmemobj
+LIBS     := -lpthread
 
 # Remove these files when doing clean
 OUTPUT +=

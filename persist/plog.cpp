@@ -35,7 +35,7 @@ class CombineTable {
     }
     
     if (pstm_vlogs[thread_id].log_count != 0) {
-      for (int i = 0; i < pstm_vlogs[thread_id].log_count; i ++) {
+      for (uint64_t i = 0; i < pstm_vlogs[thread_id].log_count; i ++) {
         cb_table.insert(std::unordered_map<uint64_t,uint64_t>::value_type(pstm_vlogs[thread_id].buffer[i*2],pstm_vlogs[thread_id].buffer[i*2+1]));
       }
       tx_count ++;
@@ -72,7 +72,7 @@ class CombineTable {
     ((uint64_t*)pstm_nvram_logs_ptr)[log_ptr] = END_FLAG(cb_table.size());
     INC_LOG_PTR(log_ptr);
 
-    FLUSH_RANGE(pstm_nvram_logs_ptr+log_ptr_start, pstm_nvram_logs_ptr+log_ptr, pstm_nvram_logs_ptr, pstm_nvram_logs_ptr+PSTM_LOG_SIZE)
+    FLUSH_RANGE((uint64_t *)pstm_nvram_logs_ptr+log_ptr_start, (uint64_t *)pstm_nvram_logs_ptr+log_ptr, (uint64_t *)pstm_nvram_logs_ptr, (uint64_t *)pstm_nvram_logs_ptr+PSTM_LOG_SIZE)
     FENCE_PREV_FLUSHES();
 
     log_root->log_end_off = log_ptr;

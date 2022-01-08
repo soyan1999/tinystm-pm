@@ -30,6 +30,7 @@
 #  include "types.h"
 #  include "thread.h"
 #  include <math.h>
+#include <setjmp.h>
 
 #  include <stm.h>
 #  include <wrappers.h>
@@ -113,7 +114,7 @@ static int pstm_nb_threads;
 #endif /* end NPROFILE */
 
 # define TM_THREAD_ENTER() \
-  {stm_init_thread();pstm_after_thread_start();} \
+  {stm_init_thread();pstm_after_thread_start(thread_getId());} \
 //
 
 # define TM_THREAD_EXIT() \
@@ -126,12 +127,12 @@ static int pstm_nb_threads;
 do { \
   stm_tx_attr_t _a = {}; \
   sigjmp_buf *buf = stm_start(_a); \
-  sigsetjmp((__jmp_buf_tag*)buf, 0); \
+  sigsetjmp((struct __jmp_buf_tag*)buf, 0); \
 } while (0) \
 //
 
 # define TM_END() \
-  {int ts = stm_commit();pstm_after_tx_commit(ts);!!ts} \
+  {int ts = stm_commit();pstm_after_tx_commit(ts);!!ts;} \
 //
 
 # define TM_RESTART()                  stm_abort(0)

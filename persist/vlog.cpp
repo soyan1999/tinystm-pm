@@ -10,7 +10,7 @@ void pstm_vlog_init(int thread_num) {
   for (int i = 0; i < thread_num; i ++) {
     pstm_vlogs[i].buffer = (uint64_t*)malloc(VLOG_BUFEER_SIZE);
     pstm_vlogs[i].log_count = 0;
-    pstm_vlogs[i].ts;
+    pstm_vlogs[i].ts = 0;
   }
 }
 
