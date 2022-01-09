@@ -1,4 +1,5 @@
 #include "vlog.h"
+#include "page.h"
 
 pstm_vlog_t *pstm_vlogs;
 __thread int thread_id;
@@ -28,9 +29,10 @@ void pstm_vlog_collect(void *addr, uint64_t value) {
 
   assert(log_count <= VLOG_MAX_NUM);
 
+  if(!IS_PMEM(addr)) return;
   pstm_vlogs[thread_id].buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
   pstm_vlogs[thread_id].buffer[log_count * 2 + 1] = value;
-  log_count ++;
+  pstm_vlogs[thread_id].log_count ++;
 }
 
 void pstm_vlog_commit(uint64_t ts) {

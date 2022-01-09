@@ -3,6 +3,7 @@
 void pstm_before_tm_start(int numThread) {
   pstm_nvm_create(numThread);
   pstm_vlog_init(numThread);
+  pstm_dram_create();
   pstm_plog_init();
 }
 

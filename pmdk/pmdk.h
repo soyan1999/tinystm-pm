@@ -23,8 +23,8 @@
 
 # define LAYOUT_NAME "pmdk"
 # define POOL_SIZE (1 * 1024 * 1024 * 1024)
-// # define POOL_PATH "/mnt/pmem0/ysha/tinystm-pm/pmdk.pool"
-# define POOL_PATH "./pmdk.pool"
+# define POOL_PATH "/mnt/pmem0/ysha/tinystm-pm/pmdk.pool"
+// # define POOL_PATH "./pmdk.pool"
 
 
 #ifdef __cplusplus

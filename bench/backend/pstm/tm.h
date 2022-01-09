@@ -144,7 +144,7 @@ do { \
 
 # define TM_SHARED_READ(var)         stm_load((volatile stm_word_t *)(void *)&(var))
 // # define TM_SHARED_READ_P(var)       ((__typeof__(var)) stm_load_ptr((volatile void **)(void *)&(var)))
-# define TM_SHARED_READ_P(var)       ((__typeof__(var))stm_load((volatile long *)(void *)&(var)))
+# define TM_SHARED_READ_P(var)       ((__typeof__(var))stm_load((volatile stm_word_t *)(void *)&(var)))
 
 // extern __thread struct stm_tx * thread_tx;
 // # define TM_SHARED_READ_P(var)       ({ \

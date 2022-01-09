@@ -4,10 +4,10 @@
 
 class CombineTable {
  public:
-  const uint64_t min_flush_tx_count = 300;
+  const uint64_t min_flush_tx_count = UINT64_MAX;
   const uint64_t min_flush_w_tx_count = 20;
-  const uint64_t min_flush_log_count = 1000;
-  const uint64_t min_flush_time_count = 500;
+  const uint64_t min_flush_log_count = UINT64_MAX;
+  const uint64_t min_flush_time_count = UINT64_MAX;
 
   uint64_t ts_start;
   uint64_t ts_end;
@@ -33,10 +33,13 @@ class CombineTable {
       ts_end = ts_start;
       // TODO: acquire time start
     }
+    if(ts_start == 0) return;
     
     if (pstm_vlogs[thread_id].log_count != 0) {
       for (uint64_t i = 0; i < pstm_vlogs[thread_id].log_count; i ++) {
-        cb_table.insert(std::unordered_map<uint64_t,uint64_t>::value_type(pstm_vlogs[thread_id].buffer[i*2],pstm_vlogs[thread_id].buffer[i*2+1]));
+        uint64_t addr = pstm_vlogs[thread_id].buffer[i*2];
+        uint64_t value = pstm_vlogs[thread_id].buffer[i*2+1];
+        cb_table.insert(std::unordered_map<uint64_t,uint64_t>::value_type(addr,value));
       }
       tx_count ++;
     }
@@ -72,7 +75,7 @@ class CombineTable {
     ((uint64_t*)pstm_nvram_logs_ptr)[log_ptr] = END_FLAG(cb_table.size());
     INC_LOG_PTR(log_ptr);
 
-    FLUSH_RANGE((uint64_t *)pstm_nvram_logs_ptr+log_ptr_start, (uint64_t *)pstm_nvram_logs_ptr+log_ptr, (uint64_t *)pstm_nvram_logs_ptr, (uint64_t *)pstm_nvram_logs_ptr+PSTM_LOG_SIZE)
+    FLUSH_RANGE((uint64_t *)pstm_nvram_logs_ptr+log_ptr_start, (uint64_t *)pstm_nvram_logs_ptr+log_ptr, (uint64_t *)pstm_nvram_logs_ptr, (uint64_t *)pstm_nvram_logs_ptr+(PSTM_LOG_SIZE>>3))
     FENCE_PREV_FLUSHES();
 
     log_root->log_end_off = log_ptr;
@@ -97,11 +100,13 @@ class CombineTable {
         uint64_t value = ((uint64_t*)pstm_nvram_logs_ptr)[log_ptr];
         INC_LOG_PTR(log_ptr);
 
-        ((uint64_t*)pstm_nvram_ptr)[addr] = value;
-        FLUSH_CL((uint64_t*)pstm_nvram_ptr+addr);
+        ((uint64_t*)pstm_nvram_ptr)[addr>>3] = value;
+        FLUSH_CL((uint64_t*)pstm_nvram_ptr+(addr>>3));
+        flag = ((uint64_t*)pstm_nvram_logs_ptr)[log_ptr];
       }
       FENCE_PREV_FLUSHES();
 
+      INC_LOG_PTR(log_ptr);
       log_root->log_start_off = log_ptr;
       FLUSH_CL(&log_root->log_start_off);
       FENCE_PREV_FLUSHES();
@@ -115,10 +120,10 @@ static CombineTable *combine_table = NULL;
 
 void pstm_plog_init() {
   log_root_t *log_root = (log_root_t *)pstm_nvram_logs_root_ptr;
-  if (log_root->crash) {
-    // TODO
-  }
-  else {
+  // if (log_root->crash) {
+  //   // TODO
+  // }
+  // else {
     log_root->log_end_off = 0;
     log_root->log_start_off = 0;
     FLUSH_CL(&log_root->log_start_off);
@@ -127,7 +132,7 @@ void pstm_plog_init() {
     log_root->crash = 1;
     FLUSH_CL(&log_root->crash);
     FENCE_PREV_FLUSHES();
-  }
+  // }
 }
 
 void pstm_plog_collect() {
