@@ -48,8 +48,8 @@ private:
 struct Item {
     static const int MIN_IM = 1;
     static const int MAX_IM = 10000;
-    static const float MIN_PRICE = 1.00;
-    static const float MAX_PRICE = 100.00;
+    static constexpr float MIN_PRICE = 1.00;
+    static constexpr float MAX_PRICE = 100.00;
     static const int MIN_NAME = 14;
     static const int MAX_NAME = 24;
     static const int MIN_DATA = 26;
@@ -64,9 +64,9 @@ struct Item {
 };
 
 struct Warehouse {
-    static const float MIN_TAX = 0;
-    static const float MAX_TAX = 0.2000f;
-    static const float INITIAL_YTD = 300000.00f;
+    static constexpr float MIN_TAX = 0;
+    static constexpr float MAX_TAX = 0.2000f;
+    static constexpr float INITIAL_YTD = 300000.00f;
     static const int MIN_NAME = 6;
     static const int MAX_NAME = 10;
     // TPC-C 1.3.1 (page 11) requires 2*W. This permits testing up to 50 warehouses. This is an
@@ -85,9 +85,9 @@ struct Warehouse {
 };
 
 struct District {
-    static const float MIN_TAX = 0;
-    static const float MAX_TAX = 0.2000f;
-    static const float INITIAL_YTD = 30000.00;  // different from Warehouse
+    static constexpr float MIN_TAX = 0;
+    static constexpr float MAX_TAX = 0.2000f;
+    static constexpr float INITIAL_YTD = 30000.00;  // different from Warehouse
     static const int INITIAL_NEXT_O_ID = 3001;
     static const int MIN_NAME = 6;
     static const int MAX_NAME = 10;
@@ -129,11 +129,11 @@ struct Stock {
 static const int DATETIME_SIZE = 14;
 
 struct Customer {
-    static const float INITIAL_CREDIT_LIM = 50000.00;
-    static const float MIN_DISCOUNT = 0.0000;
-    static const float MAX_DISCOUNT = 0.5000;
-    static const float INITIAL_BALANCE = -10.00;
-    static const float INITIAL_YTD_PAYMENT = 10.00;
+    static constexpr float INITIAL_CREDIT_LIM = 50000.00;
+    static constexpr float MIN_DISCOUNT = 0.0000;
+    static constexpr float MAX_DISCOUNT = 0.5000;
+    static constexpr float INITIAL_BALANCE = -10.00;
+    static constexpr float INITIAL_YTD_PAYMENT = 10.00;
     static const int INITIAL_PAYMENT_CNT = 1;
     static const int INITIAL_DELIVERY_CNT = 0;
     static const int MIN_FIRST = 6;
@@ -199,8 +199,8 @@ struct OrderLine {
     static const int MIN_I_ID = 1;
     static const int MAX_I_ID = 100000;  // Item::NUM_ITEMS
     static const int INITIAL_QUANTITY = 5;
-    static const float MIN_AMOUNT = 0.01f;
-    static const float MAX_AMOUNT = 9999.99f;
+    static constexpr float MIN_AMOUNT = 0.01f;
+    static constexpr float MAX_AMOUNT = 9999.99f;
     // new order has 10/1000 probability of selecting a remote warehouse for ol_supply_w_id
     static const int REMOTE_PROBABILITY_MILLIS = 10;
 
@@ -227,7 +227,7 @@ struct NewOrder {
 struct History {
     static const int MIN_DATA = 12;
     static const int MAX_DATA = 24;
-    static const float INITIAL_AMOUNT = 10.00f;
+    static constexpr float INITIAL_AMOUNT = 10.00f;
 
     int64_t h_c_id;
     int64_t h_c_d_id;

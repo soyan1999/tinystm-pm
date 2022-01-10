@@ -107,7 +107,7 @@ static int pstm_nb_threads;
 # define TM_BEGIN()                   TX_BEGIN(pool_){
 //
 
-# define TM_END()                     }TX_END
+# define TM_END()                     ;}TX_END
 //
 
 # define TM_RESTART()                  

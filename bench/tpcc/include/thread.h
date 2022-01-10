@@ -11,48 +11,48 @@
  *
  * For the license of bayes/sort.h and bayes/sort.c, please see the header
  * of the files.
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of kmeans, please see kmeans/LICENSE.kmeans
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of ssca2, please see ssca2/COPYRIGHT
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of lib/mt19937ar.c and lib/mt19937ar.h, please see the
  * header of the files.
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of lib/rbtree.h and lib/rbtree.c, please see
  * lib/LEGALNOTICE.rbtree and lib/LICENSE.rbtree
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * Unless otherwise noted, the following license applies to STAMP files:
- *
+ * 
  * Copyright (c) 2007, Stanford University
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *
+ * 
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
- *
+ * 
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in
  *       the documentation and/or other materials provided with the
  *       distribution.
- *
+ * 
  *     * Neither the name of Stanford University nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY STANFORD UNIVERSITY ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -67,55 +67,13 @@
  *
  * =============================================================================
  */
-/* Copyright (c) IBM Corp. 2014. */
 
 
 #ifndef THREAD_H
 #define THREAD_H 1
 
-#ifndef USE_P8
-# define THR_CACHE_LINE_SIZE 64
-#else /* USE_P8 */
-# define THR_CACHE_LINE_SIZE 128
-#endif /* USE_P8 */
-
 #include <pthread.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include "types.h"
-#include "min_nvm.h"
-#ifdef OTM
-#include "omp.h"
-#endif
 
-
-typedef struct padded_scalar {
-    volatile long value;
-    char suffixPadding[THR_CACHE_LINE_SIZE];
-} __attribute__((aligned(THR_CACHE_LINE_SIZE))) padded_scalar_t;
-
-typedef struct spinlock {
-    pthread_spinlock_t lock;
-    char suffixPadding[THR_CACHE_LINE_SIZE];
-} __attribute__((aligned(THR_CACHE_LINE_SIZE))) spinlock_t;
-
-typedef struct padded_statistics {
-    unsigned long tle_commits;
-    unsigned long gl_commits;
-    unsigned long conflicts;
-    unsigned long self;
-    unsigned long trans;
-    unsigned long nontrans;
-    unsigned long capacity;
-    unsigned long other;
-    unsigned long user;
-    unsigned long persistent;
-    char suffixPadding[THR_CACHE_LINE_SIZE];
-} __attribute__((aligned(THR_CACHE_LINE_SIZE))) padded_statistics_t;
-
-extern __attribute__((aligned(THR_CACHE_LINE_SIZE))) padded_statistics_t stats_array[];
-
-extern __attribute__((aligned(THR_CACHE_LINE_SIZE))) pthread_spinlock_t single_global_lock;
 
 extern long              global_numThread    ;
 
@@ -123,22 +81,18 @@ extern __thread unsigned long backoff;
 extern __thread unsigned long cm_seed;
 
 extern __thread unsigned int local_exec_mode;
-extern __thread unsigned int local_thread_id;
 
 extern __thread void* rot_readset[];
 extern __thread unsigned long rs_counter;
 
-extern __attribute__((aligned(THR_CACHE_LINE_SIZE))) padded_scalar_t counters[];
+#ifndef REDUCED_TM_API
 
-extern unsigned int htm_rot_enabled;
-extern unsigned int allow_rots_ros;
-extern unsigned int allow_htms;
-extern unsigned int allow_stms;
+#include <stdlib.h>
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 #define THREAD_T                            pthread_t
 #define THREAD_ATTR_T                       pthread_attr_t
@@ -150,10 +104,10 @@ extern "C" {
                                                            (void* (*)(void*))(fn), \
                                                            (void*)(arg))
 
-#define THREAD_KEY_T                      pthread_key_t
-#define THREAD_KEY_INIT(key)              pthread_key_create(&key, NULL)
-#define THREAD_KEY_SET(key, val)          pthread_setspecific(key, (void*)(val))
-#define THREAD_KEY_GET(key)               pthread_getspecific(key)
+#define THREAD_LOCAL_T                      pthread_key_t
+#define THREAD_LOCAL_INIT(key)              pthread_key_create(&key, NULL)
+#define THREAD_LOCAL_SET(key, val)          pthread_setspecific(key, (void*)(val))
+#define THREAD_LOCAL_GET(key)               pthread_getspecific(key)
 
 #define THREAD_MUTEX_T                      pthread_mutex_t
 #define THREAD_MUTEX_INIT(lock)             pthread_mutex_init(&(lock), NULL)
@@ -166,144 +120,44 @@ extern "C" {
 #define THREAD_COND_BROADCAST(cond)         pthread_cond_broadcast(&(cond))
 #define THREAD_COND_WAIT(cond, lock)        pthread_cond_wait(&(cond), &(lock))
 
-#ifdef SIMULATOR
-#  define THREAD_BARRIER_T                  pthread_barrier_t
-#  define THREAD_BARRIER_ALLOC(N)           ((THREAD_BARRIER_T*)malloc(sizeof(THREAD_BARRIER_T)))
-#  define THREAD_BARRIER_INIT(bar, N)       pthread_barrier_init(bar, 0, N)
-#  define THREAD_BARRIER(bar, tid)          pthread_barrier_wait(bar)
-#  define THREAD_BARRIER_FREE(bar)          free(bar)
-#else /* !SIMULATOR */
-#  define THREAD_BARRIER_T                  thread_barrier_t
-#  define THREAD_BARRIER_ALLOC(N)           thread_barrier_alloc(N)
-#  define THREAD_BARRIER_INIT(bar, N)       thread_barrier_init(bar)
-#  define THREAD_BARRIER(bar, tid)          thread_barrier(bar, tid)
-#  define THREAD_BARRIER_FREE(bar)          thread_barrier_free(bar)
-#endif /* !SIMULATOR */
+#  define THREAD_BARRIER_T                  barrier_t
+#  define THREAD_BARRIER_ALLOC(N)           barrier_alloc()
+#  define THREAD_BARRIER_INIT(bar, N)       barrier_init(bar, N)
+#  define THREAD_BARRIER(bar, tid)          barrier_cross(bar)
+#  define THREAD_BARRIER_FREE(bar)          barrier_free(bar)
 
-#define USE_SPIN_BARRIER
-#ifdef USE_SPIN_BARRIER
-typedef struct thread_barrier {
-  volatile int32_t reachBarrier;
-  volatile int32_t leaveBarrier;
-  volatile int reachBarrierFlag;
-  volatile int leaveBarrierFlag;
-  int32_t numThread;
-  /*volatile int debugCounter;*/
-} thread_barrier_t;
-#else
-typedef struct thread_barrier {
-    THREAD_MUTEX_T countLock;
-    THREAD_COND_T proceedCond;
-    THREAD_COND_T proceedAllCond;
-    long count;
-    long numThread;
-} thread_barrier_t;
-#endif
+typedef struct barrier {
+    pthread_cond_t complete;
+    pthread_mutex_t mutex;
+    int count;
+    int crossing;
+} barrier_t;
 
+barrier_t *barrier_alloc();
 
-/* =============================================================================
- * thread_startup
- * -- Create pool of secondary threads
- * -- numThread is total number of threads (primary + secondary)
- * =============================================================================
- */
-void
-thread_startup (long numThread);
+void barrier_free(barrier_t *b);
 
+void barrier_init(barrier_t *b, int n);
 
-/* =============================================================================
- * thread_start
- * -- Make primary and secondary threads execute work
- * -- Should only be called by primary thread
- * -- funcPtr takes one arguments: argPtr
- * =============================================================================
- */
-void
-thread_start (void (*funcPtr)(void*), void* argPtr);
+void barrier_cross(barrier_t *b);
 
+void thread_startup (long numThread);
 
-/* =============================================================================
- * thread_shutdown
- * -- Primary thread kills pool of secondary threads
- * =============================================================================
- */
-void
-thread_shutdown ();
+void thread_start (void (*funcPtr)(void*), void* argPtr);
 
+void thread_shutdown ();
 
-/* =============================================================================
- * thread_barrier_alloc
- * =============================================================================
- */
-thread_barrier_t*
-thread_barrier_alloc (long numThreads);
+void thread_barrier_wait();
 
+long thread_getId();
 
-/* =============================================================================
- * thread_barrier_free
- * =============================================================================
- */
-void
-thread_barrier_free (thread_barrier_t* barrierPtr);
-
-
-/* =============================================================================
- * thread_barrier_init
- * =============================================================================
- */
-void
-thread_barrier_init (thread_barrier_t* barrierPtr);
-
-
-/* =============================================================================
- * thread_barrier
- * -- Simple logarithmic barrier
- * =============================================================================
- */
-void
-thread_barrier (thread_barrier_t* barrierPtr, long threadId);
-
-
-/* =============================================================================
- * thread_getId
- * -- Call after thread_start() to get thread ID inside parallel region
- * =============================================================================
- */
-long
-thread_getId();
-
-
-/* =============================================================================
- * thread_getNumThread
- * -- Call after thread_start() to get number of threads inside parallel region
- * =============================================================================
- */
-long
-thread_getNumThread();
-
-
-/* =============================================================================
- * thread_barrier_wait
- * -- Call after thread_start() to synchronize threads inside parallel region
- * =============================================================================
- */
-void
-thread_barrier_wait();
-
-#ifdef GLOBAL_LOCK
-#define USE_MUTEX
-
-#ifdef USE_MUTEX
-extern THREAD_MUTEX_T global_lock;
-#else
-extern volatile int global_lock;
-#endif
-#endif
+long thread_getNumThread();
 
 #ifdef __cplusplus
 }
 #endif
 
+#endif
 
 #endif /* THREAD_H */
 

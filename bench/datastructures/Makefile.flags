@@ -1,8 +1,8 @@
 CFLAGS   += -w -DDEF_CPU_FREQ=$(DEF_CPU_FREQ) -I . \
   -I ../../deps/input_handler/include -I ../../deps/arch_dep/include \
-  -I ../../deps/threading/include -I ../../../include -I ../../../persist/include
+  -I ../../deps/threading/include -I ../../../pmdk
 
 CPPFLAGS := $(CFLAGS)
-LIBS     += -linput_handler -lthreading -lrt -lm -lstm -lpersist
+LIBS     += -linput_handler -lthreading -lrt -lm -lpmdk
 LDFLAGS  += $(CFLAGS) -L ../../deps/threading  \
-  -L ../../deps/input_handler -L ../../../lib -L ../../../persist
+  -L ../../deps/input_handler -L ../../../pmdk

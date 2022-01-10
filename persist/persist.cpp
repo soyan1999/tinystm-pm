@@ -18,6 +18,7 @@ void pstm_after_store(uint64_t *addr, uint64_t value){
 void pstm_after_tx_commit(uint64_t ts) {
   pstm_vlog_commit(ts);
   pstm_plog_collect();
+  pstm_vlog_clear();
 }
 
 void pstm_before_thread_exit(){

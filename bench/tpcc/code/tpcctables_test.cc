@@ -40,12 +40,12 @@ TEST(CustomerByNameOrdering, Simple) {
 static const char CUSTOMER_FIRST[] = "foo4567890";
 static const char CUSTOMER_MIDDLE[] = "AB";
 static const char CUSTOMER_LAST[] = "bar4567890123456";
-static const float CUSTOMER_BALANCE = 123.45f;
-static const float CUSTOMER_DISCOUNT = 0.0003f;
+static constexpr float CUSTOMER_BALANCE = 123.45f;
+static constexpr float CUSTOMER_DISCOUNT = 0.0003f;
 static const char NOW[] = "20080708012243";
-static const float AMOUNT = 1.23f;
-static const float W_TAX = 0.0001f;
-static const float D_TAX = 0.0002f;
+static constexpr float AMOUNT = 1.23f;
+static constexpr float W_TAX = 0.0001f;
+static constexpr float D_TAX = 0.0002f;
 static const char ITEM_NAME[] = "12345678901234";
 static const char ITEM_DATA[] = "ORIGINAL9012345678901234";
 static const char STOCK_DIST[] = "12345678901234";
@@ -65,7 +65,7 @@ public:
     static const int32_t SUPPLY_W_ID = 5;
     static const int32_t QUANTITY = 6;
     static const int32_t ITEM_IM_ID = 52;
-    static const float ITEM_PRICE = 1.09f;
+    static constexpr float ITEM_PRICE = 1.09f;
 
     void makeDistrict(int32_t w_id, int32_t d_id, int32_t next_o_id) {
         District d;

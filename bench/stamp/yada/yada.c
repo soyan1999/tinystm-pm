@@ -88,7 +88,7 @@
 
 
 char*    global_inputPrefix     = PARAM_DEFAULT_INPUTPREFIX;
-long     global_numThread       = PARAM_DEFAULT_NUMTHREAD;
+long     global_numThread_       = PARAM_DEFAULT_NUMTHREAD;
 double   global_angleConstraint = PARAM_DEFAULT_ANGLE;
 mesh_t*  global_meshPtr;
 heap_t*  global_workHeapPtr;
@@ -133,7 +133,7 @@ parseArgs (long argc, char* const argv[])
                 global_inputPrefix = optarg;
                 break;
             case 't':
-                global_numThread = atol(optarg);
+                global_numThread_ = atol(optarg);
                 break;
             case '?':
             default:
@@ -277,10 +277,10 @@ MAIN(argc, argv)
      */
 
     parseArgs(argc, (char** const)argv);
-    SIM_GET_NUM_CPU(global_numThread);
-    TM_STARTUP(global_numThread);
-    P_MEMORY_STARTUP(global_numThread);
-    thread_startup(global_numThread);
+    SIM_GET_NUM_CPU(global_numThread_);
+    TM_STARTUP(global_numThread_);
+    P_MEMORY_STARTUP(global_numThread_);
+    thread_startup(global_numThread_);
     global_meshPtr = mesh_alloc();
     assert(global_meshPtr);
     printf("Angle constraint = %lf\n", global_angleConstraint);

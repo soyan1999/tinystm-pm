@@ -1376,6 +1376,7 @@ int_stm_commit(stm_tx_t *tx)
   }
 
   assert(IS_ACTIVE(tx->status));
+  int ts_ = 0;
 
 #if CM == CM_MODULAR
   /* Set status to COMMITTING */
@@ -1398,7 +1399,7 @@ int_stm_commit(stm_tx_t *tx)
 #elif DESIGN == WRITE_BACK_CTL
   stm_wbctl_commit(tx);
 #elif DESIGN == WRITE_THROUGH
-  stm_wt_commit(tx);
+  ts_ = stm_wt_commit(tx);
 #elif DESIGN == MODULAR
   if (tx->attr.id == WRITE_BACK_CTL)
     stm_wbctl_commit(tx);
@@ -1449,7 +1450,7 @@ int_stm_commit(stm_tx_t *tx)
       _tinystm.commit_cb[cb].f(_tinystm.commit_cb[cb].arg);
   }
 
-  return 1;
+  return ts_;
 }
 
 static INLINE stm_word_t
