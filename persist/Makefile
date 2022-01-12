@@ -1,10 +1,11 @@
 SRCDIR = .
 INCDIR = ./include
+DEPDIR = ../bench/deps/arch_dep/include
 TARGET = persist
 
 OBJS := $(patsubst %.cpp,%.o,$(wildcard $(SRCDIR)/*.cpp))
 SRCS := $(wildcard $(SRCDIR)/*.cpp)
-INCS := $(wildcard $(SRCDIR)/*.h)
+INCS := $(wildcard $(DEPDIR)/*.h)
 INCS += $(wildcard $(INCDIR)/*.h)
 
 .PHONY: all clean
@@ -19,7 +20,7 @@ endif
 
 CC       := gcc
 CFLAGS   += -std=c++11 -fno-strict-aliasing -fno-stack-protector -Wall -Wno-unused-function -Wno-unused-label
-CFLAGS   += -I$(INCDIR) -I$(SRCDIR)
+CFLAGS   += -I$(INCDIR) -I$(DEPDIR)
 CPP      := g++
 CPPFLAGS += $(CFLAGS)
 LD       := g++
@@ -30,7 +31,7 @@ LIBS     := -lpthread
 all:		lib$(TARGET).a
 
 %.o:		%.c	$(INCS)
-	$(CPP) $(CPPFLAGS) -I$(SRCDIR) -I$(INCDIR) -c $< -o $@ 
+	$(CPP) $(CPPFLAGS) -c $< -o $@ 
 
 lib$(TARGET).a: $(TARGET).o $(OBJS)
 	$(AR) $@ $^

@@ -1,5 +1,7 @@
 #include "plog.h"
 #include "vlog.h"
+#include "persist.h"
+#include "rdtsc.h"
 #include <unordered_map>
 
 class CombineTable {
@@ -51,7 +53,9 @@ class CombineTable {
         cb_table.size() >= min_flush_log_count)
     {
       //TODO: mutithread
+      ts2 = rdtscp();
       flush_log();
+      ts3 = rdtscp();
       apply_log();
       clear();
     }

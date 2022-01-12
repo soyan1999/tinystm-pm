@@ -123,7 +123,7 @@ static int pstm_nb_threads;
 
 # define IS_LOCKED(lock)        *((volatile int*)(&lock)) != 0
 
-# define TM_BEGIN() \
+# define TM_BEGIN() pstm_before_tx_start();\
 do { \
   stm_tx_attr_t _a = {}; \
   sigjmp_buf *buf = stm_start(_a); \
