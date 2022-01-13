@@ -1366,7 +1366,7 @@ int_stm_commit(stm_tx_t *tx)
 
   /* Decrement nesting level */
   if (unlikely(--tx->nesting > 0))
-    return 0;
+    return 1;
 
   /* Callbacks */
   if (unlikely(_tinystm.nb_precommit_cb != 0)) {

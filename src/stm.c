@@ -283,7 +283,7 @@ stm_init(void)
 
   /* Set locks and clock but should be already to 0 */
   memset((void *)_tinystm.locks, 0, LOCK_ARRAY_SIZE * sizeof(stm_word_t));
-  CLOCK = 0;
+  CLOCK = 1;
 
   stm_quiesce_init();
 
