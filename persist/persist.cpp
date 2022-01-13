@@ -33,10 +33,10 @@ void pstm_after_store(uint64_t *addr, uint64_t value){
 
 void pstm_before_tx_start() {
   pstm_vlog_clear();
-  ts1 = rdtscp();
-  ts2 = 0;
-  ts3 = 0;
-  ts4 = 0;
+  if (ts1 == 0) {
+    ts1 = rdtscp();
+  }
+  
 }
 
 void pstm_after_tx_commit(uint64_t ts) {
@@ -57,6 +57,11 @@ void pstm_after_tx_commit(uint64_t ts) {
   }
   pstm_time_tx += ts4 - ts1;
   pstm_nb_tx ++;
+
+  ts1 = 0;
+  ts2 = 0;
+  ts3 = 0;
+  ts4 = 0;
 }
 
 void pstm_before_thread_exit(){
@@ -72,7 +77,7 @@ void pstm_before_thread_exit(){
 void pstm_after_tm_exit() {
   pstm_plog_end();
   pstm_nvm_close();
-  printf("nb_tx:\t\t%lu\nnb_flush:\t\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\n",
+  printf("nb_tx:\t\t%lu\nnb_flush:\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\n",
     tot_pstm_nb_tx,tot_pstm_nb_flush,
     (double)tot_pstm_time_tx/(double)tot_pstm_nb_tx, 
     (double)tot_pstm_time_flush_redo_log/(double)tot_pstm_nb_flush, 
