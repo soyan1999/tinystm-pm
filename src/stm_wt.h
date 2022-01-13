@@ -145,6 +145,7 @@ stm_wt_rollback(stm_tx_t *tx)
   }
   /* Make sure that all lock releases become visible */
   ATOMIC_MB_WRITE;
+  pstm_before_tx_abort();
 }
 
 static INLINE void

@@ -41,7 +41,6 @@ void pstm_before_tx_start() {
 
 void pstm_after_tx_commit(uint64_t ts) {
   if (ts == 0) {
-    pstm_vlog_clear();
     return;
   }
   pstm_vlog_commit(ts);
@@ -62,6 +61,14 @@ void pstm_after_tx_commit(uint64_t ts) {
   ts2 = 0;
   ts3 = 0;
   ts4 = 0;
+}
+
+void pstm_before_tx_abort() {
+  ts1 = 0;
+  ts2 = 0;
+  ts3 = 0;
+  ts4 = 0;
+  pstm_vlog_clear();
 }
 
 void pstm_before_thread_exit(){
