@@ -53,6 +53,7 @@ class CombineTable {
         cb_table.size() >= min_flush_log_count)
     {
       //TODO: mutithread
+      pstm_size_flush += cb_table.size();
       ts2 = rdtscp();
       flush_log();
       ts3 = rdtscp();

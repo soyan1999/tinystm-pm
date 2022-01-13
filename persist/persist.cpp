@@ -4,11 +4,13 @@
 __thread unsigned long pstm_time_flush_redo_log = 0;
 __thread unsigned long pstm_time_flush_data = 0;
 __thread unsigned long pstm_time_tx = 0;
+__thread unsigned long pstm_size_flush = 0;
 __thread unsigned long pstm_nb_tx = 0;
 __thread unsigned long pstm_nb_flush = 0;
 volatile unsigned long tot_pstm_time_flush_redo_log = 0;
 volatile unsigned long tot_pstm_time_flush_data = 0;
 volatile unsigned long tot_pstm_time_tx = 0;
+volatile unsigned long tot_pstm_size_flush = 0;
 volatile unsigned long tot_pstm_nb_tx = 0;
 volatile unsigned long tot_pstm_nb_flush = 0;
 
@@ -62,6 +64,7 @@ void pstm_before_thread_exit(){
   __sync_add_and_fetch(&tot_pstm_time_flush_redo_log, pstm_time_flush_redo_log);
   __sync_add_and_fetch(&tot_pstm_time_flush_data, pstm_time_flush_data);
   __sync_add_and_fetch(&tot_pstm_time_tx, pstm_time_tx);
+  __sync_add_and_fetch(&tot_pstm_size_flush, pstm_size_flush);
   __sync_add_and_fetch(&tot_pstm_nb_tx, pstm_nb_tx);
   __sync_add_and_fetch(&tot_pstm_nb_flush, pstm_nb_flush);
 }
@@ -69,8 +72,10 @@ void pstm_before_thread_exit(){
 void pstm_after_tm_exit() {
   pstm_plog_end();
   pstm_nvm_close();
-  printf("nb_tx:\t%lu\nnb_flush:t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\n",tot_pstm_nb_tx,tot_pstm_nb_flush,
+  printf("nb_tx:\t\t%lu\nnb_flush:\t\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\n",
+    tot_pstm_nb_tx,tot_pstm_nb_flush,
     (double)tot_pstm_time_tx/(double)tot_pstm_nb_tx, 
     (double)tot_pstm_time_flush_redo_log/(double)tot_pstm_nb_flush, 
-    (double)tot_pstm_time_flush_data/(double)tot_pstm_nb_flush);
+    (double)tot_pstm_time_flush_data/(double)tot_pstm_nb_flush, 
+    (double)tot_pstm_size_flush/(double)tot_pstm_nb_flush);
 }

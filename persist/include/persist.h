@@ -15,6 +15,7 @@ extern "C" {
 extern __thread unsigned long ts1, ts2, ts3, ts4;
 extern __thread unsigned long pstm_nb_tx;
 extern __thread unsigned long pstm_nb_flush;
+extern __thread unsigned long pstm_size_flush;
 
 void pstm_before_tm_start(int numThread);                 // init nvm,vlog and shadowdram, set crash value
 void pstm_after_thread_start(int threadID);               // init thread_id
