@@ -34,8 +34,8 @@ void pstm_after_store(uint64_t *addr, uint64_t value){
   pstm_vlog_collect(addr, value);
 }
 
-void pstm_after_read_unlock(uint64_t modify_ts) {
-  if (modify_ts > last_persist_ts) {
+void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts) {
+  if (modify_ts > last_persist_ts && IS_PMEM(addr)) {
     pstm_is_force_flush = 1;
   }
 }
