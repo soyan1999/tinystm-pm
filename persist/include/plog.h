@@ -14,6 +14,8 @@
 extern "C" {
 #endif
 
+extern __thread uint64_t last_persist_ts;
+
 void pstm_plog_init();
 void pstm_plog_collect();
 void pstm_plog_end();

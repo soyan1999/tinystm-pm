@@ -4,6 +4,10 @@
 #include "rdtsc.h"
 #include <unordered_map>
 
+
+__thread uint64_t last_persist_ts = 0;
+
+
 class CombineTable {
  public:
   const uint64_t min_flush_tx_count = UINT64_MAX;
@@ -32,11 +36,12 @@ class CombineTable {
   void insert(int thread_id) {
     if (ts_start == 0 && ts_end == 0) {
       ts_start = pstm_vlogs[thread_id].ts;
-      ts_end = ts_start;
+      // ts_end = ts_start;
       // TODO: acquire time start
     }
     if(ts_start == 0) return;
     
+    ts_end = pstm_vlogs[thread_id].ts;
     if (pstm_vlogs[thread_id].log_count != 0) {
       for (uint64_t i = 0; i < pstm_vlogs[thread_id].log_count; i ++) {
         uint64_t addr = pstm_vlogs[thread_id].buffer[i*2];
@@ -46,7 +51,7 @@ class CombineTable {
       tx_count ++;
     }
 
-    ts_end ++;
+    // ts_end ++;
 
     if (ts_end - ts_start >= min_flush_tx_count || \
         tx_count >= min_flush_w_tx_count || \
@@ -58,6 +63,7 @@ class CombineTable {
       flush_log();
       ts3 = rdtscp();
       apply_log();
+      last_persist_ts = ts_end;
       clear();
     }
 

@@ -222,6 +222,8 @@ stm_wt_read(stm_tx_t *tx, volatile stm_word_t *addr)
       /* Worked: we now have a good version (version <= tx->end) */
     }
 
+    pstm_after_read_unlock(version);
+
 #ifdef IRREVOCABLE_ENABLED
  no_check:
 #endif /* IRREVOCABLE_ENABLED */
