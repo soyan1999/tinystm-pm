@@ -276,6 +276,7 @@ MAIN(argc, argv)
     // free(line);
 
     TM_STARTUP(nthreads);
+    P_MEMORY_STARTUP(nthreads);
     thread_startup(nthreads);
 
     /*
@@ -381,6 +382,7 @@ MAIN(argc, argv)
     S_FREE(cluster_centres);
     free(buf);
 
+    P_MEMORY_SHUTDOWN();
     TM_SHUTDOWN();
 
     GOTO_SIM();

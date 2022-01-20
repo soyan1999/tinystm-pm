@@ -19,7 +19,7 @@ else
 endif
 
 CC       := gcc
-CFLAGS   += -std=c++11 -fno-strict-aliasing -fno-stack-protector -Wall -Wno-unused-function -Wno-unused-label
+CFLAGS   += -std=c++17 -fno-strict-aliasing -fno-stack-protector -Wall -Wno-unused-function -Wno-unused-label
 CFLAGS   += -I$(INCDIR) -I$(DEPDIR)
 CPP      := g++
 CPPFLAGS += $(CFLAGS)

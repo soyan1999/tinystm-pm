@@ -46,7 +46,7 @@ class CombineTable {
       for (uint64_t i = 0; i < pstm_vlogs[thread_id].log_count; i ++) {
         uint64_t addr = pstm_vlogs[thread_id].buffer[i*2];
         uint64_t value = pstm_vlogs[thread_id].buffer[i*2+1];
-        cb_table.insert(std::unordered_map<uint64_t,uint64_t>::value_type(addr,value));
+        cb_table.insert_or_assign(addr,value);
       }
       tx_count ++;
     }
@@ -63,6 +63,7 @@ class CombineTable {
       flush_log();
       ts3 = rdtscp();
       apply_log();
+      // ts4 = rdtscp();
       last_persist_ts = ts_end;
       clear();
     }
@@ -127,7 +128,7 @@ class CombineTable {
 
 };
 
-static CombineTable *combine_table = NULL;
+static CombineTable *combine_table = new CombineTable();
 
 void pstm_plog_init() {
   log_root_t *log_root = (log_root_t *)pstm_nvram_logs_root_ptr;
@@ -147,7 +148,7 @@ void pstm_plog_init() {
 }
 
 void pstm_plog_collect() {
-  if (combine_table == NULL) combine_table = new CombineTable();
+  // if (combine_table == NULL) combine_table = (CombineTable *)malloc(sizeof(CombineTable));
   combine_table->insert(thread_id);
 }
 
