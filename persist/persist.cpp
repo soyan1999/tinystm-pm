@@ -1,4 +1,9 @@
 #include "persist.h"
+#include "global.h"
+#include "pmem.h"
+#include "page.h"
+#include "plog.h"
+#include "vlog.h"
 #include "rdtsc.h"
 
 __thread unsigned long pstm_time_flush_redo_log = 0;

@@ -1,7 +1,7 @@
 #include "vlog.h"
 #include "page.h"
 
-pstm_vlog_t *pstm_vlogs;
+pstm_vlog_t **pstm_vlogs;
 __thread int thread_id;
 int thread_count;
 

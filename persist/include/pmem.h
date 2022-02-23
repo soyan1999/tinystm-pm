@@ -29,6 +29,7 @@
 
 #define FENCE_X86_INST       "sfence"
 #define ARCH_CACHE_LINE_SIZE 64
+#define PAGE_SIZE            4096
 
 #define FLUSH_CL(_addr) \
   __asm__ volatile(FLUSH_X86_INST " (%0)" : : "r"((void*)((uint64_t)(_addr) & -ARCH_CACHE_LINE_SIZE)) : "memory") \
@@ -59,15 +60,23 @@
     } \
   } \
 
+// not allow circular
+#define FLUSH_BLOCK(addr1, addr2) \
+  for (uint64_t _addr = ((uint64_t)(addr1) & (uint64_t)-ARCH_CACHE_LINE_SIZE); \
+                _addr < (uint64_t)(addr2); \
+                _addr += ARCH_CACHE_LINE_SIZE) { \
+    __asm__ volatile(FLUSH_X86_INST " (%0)" : : "r"(((void*)_addr)) : "memory"); \
+  } \
+
 
 #define PSTM_HEAP_SIZE_PER_THREAD (4UL*1024*1024*1024)
 #define PSTM_SHARE_HEAP_SIZE (8UL*1024*1024*1024)
 #define PSTM_LOG_SIZE (4UL*1024*1024*1024)
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
 
 
 extern void *pstm_nvram_ptr;
@@ -90,7 +99,7 @@ void pstm_nvm_close();
 void *pstm_nvmalloc(long);
 void *pstm_local_nvmalloc(int, long);
 
-#ifdef __cplusplus
-}
-#endif
+// #ifdef __cplusplus
+// }
+// #endif
 #endif

@@ -1,11 +1,11 @@
 #ifndef _PERSIST_H_
 #define _PERSIST_H_
 
-#include "global.h"
-#include "pmem.h"
-#include "page.h"
-#include "plog.h"
-#include "vlog.h"
+// #include "global.h"
+// #include "pmem.h"
+// #include "page.h"
+// #include "plog.h"
+// #include "vlog.h"
 
 
 #ifdef __cplusplus

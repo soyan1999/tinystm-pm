@@ -25,7 +25,7 @@ CPP      := g++
 CPPFLAGS += $(CFLAGS)
 LD       := g++
 AR       := ar rcs
-LIBS     := -lpthread
+LIBS     := -lpthread -lfolly
 
 
 all:		lib$(TARGET).a
