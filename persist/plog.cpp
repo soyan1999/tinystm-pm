@@ -66,6 +66,7 @@ class LogFlusher {
 
   inline void* gen_plog_ptr(uint64_t offset) {
     // return (void *)((offset / PAGE_SIZE) * total_flusher_num * PAGE_SIZE + offset % PAGE_SIZE + (uint64_t)log_start_ptr);
+    if (total_flusher_num == 1) return ptr_add(log_start_ptr, offset);
     return (void *)((((offset>>12)&(log_page_num-1)) * total_flusher_num << 12) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
   }
 
@@ -202,18 +203,134 @@ class CombinedLogFlusher:LogFlusher {
   }
 };
 
-class CheckPointer {
+class LogReplayer {
  public:
-  std::vector<int64_t> last_replay_ts;
+  std::vector<uint64_t> last_replay_ts;//TODO:usage?
   std::vector<LogFlusher*> log_flushers;
+  std::list<int> stall_flusher;
 
-  std::priority_queue<std::pair<uint64_t,uint64_t>,std::vector<std::pair<uint64_t,uint64_t>>,std::greater<std::pair<uint64_t,uint64_t>>> next_queue;
+  bool recover_flag = false;
 
-  CheckPointer():last_replay_ts(LogFlusher::total_flusher_num),log_flushers(LogFlusher::total_flusher_num, nullptr) {
+
+
+  // ts and log_flusher id(<<2) pair, the lower one bit indicate if the ts log no persist 
+  std::priority_queue<std::pair<uint64_t,int>,std::vector<std::pair<uint64_t,int>>,std::greater<std::pair<uint64_t,int>>> next_queue;
+
+  LogReplayer():last_replay_ts(LogFlusher::total_flusher_num),log_flushers(LogFlusher::total_flusher_num, nullptr) {
 
   }
 
+  inline void* gen_log_ptr(int flusher_id, uint64_t offset) {
+    return log_flushers[flusher_id]->gen_plog_ptr(offset);
+  }
   
+  inline uint64_t get_log_off(int flusher_id) {
+    return ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off;
+  }
+
+  inline uint64_t get_log_data(int flusher_id, uint64_t offset) {
+    return *((uint64_t *)gen_log_ptr(flusher_id, offset));
+  }
+
+  inline uint64_t get_log_ts(int flusher_id) {
+    uint64_t offset = ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off;
+    return get_log_data(flusher_id, offset);
+  }
+
+  void do_replay(int flusher_id) {
+    uint64_t replay_offset = ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off;
+    uint64_t ts = get_log_data(flusher_id, replay_offset);
+    replay_offset += 8;
+    uint64_t log_size = get_log_data(flusher_id, replay_offset);
+    replay_offset += 8;
+
+    for (uint64_t i = 0; i < log_size; i++) {
+      uint64_t nvm_addr = get_log_data(flusher_id, replay_offset);
+      replay_offset += 8;
+      uint64_t value = get_log_data(flusher_id, replay_offset);
+      replay_offset += 8;
+      ((uint64_t*)pstm_nvram_heap_ptr)[nvm_addr>>3] = value;
+
+      FLUSH_CL(pstm_nvram_heap_ptr + (nvm_addr>>3));
+    }
+
+    FENCE_PREV_FLUSHES();
+    ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off = replay_offset;
+    FLUSH_CL(&(((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off));
+    FENCE_PREV_FLUSHES();
+
+    last_replay_ts[flusher_id] = ts;
+  }
+
+  int get_next_flusher_id() {
+    if (LogFlusher::total_flusher_num == 1) {
+      if (last_replay_ts[0] >= log_flushers[0]->last_persist_ts && log_flushers[0]->log_end_signal.load()) return -1;
+      else return 0;
+    }
+    else {
+      // ASSERT(next_queue.size() == LogFlusher::total_flusher_num);
+      // check stall flusher , if no stall add to heap
+      for (auto it = stall_flusher.begin(); it != stall_flusher.end(); ++it) {
+        if (!log_flushers[*it]->ready_vlog_collecter->empty() || log_flushers[*it]->oldest_no_persist_ts.load() > last_replay_ts[*it]) {
+          while(true) {
+            uint64_t next_ts = get_log_ts(*it);
+            if (next_ts >= last_replay_ts[*it]) {
+              next_queue.push({next_ts, (*it)<<1});
+              stall_flusher.erase(it);
+              break;
+            }
+          }
+          // TODO:if oldest_no_persist_ts changed
+          // else {
+          //   while ((next_ts = log_flushers[*it]->oldest_no_persist_ts.load()) <= last_replay_ts[*it]);
+          //   next_queue.push({next_ts, ((*it)<<1)|1});
+          // }
+        }
+      }
+      auto rt = next_queue.top();
+      if (rt.first == UINT64_MAX) {
+        // log end
+        return -1;
+      }
+      else {
+        uint64_t ts = rt.first, next_ts;
+        int flusher_id = rt.second >> 1; 
+        int not_persist = rt.second & 1;
+        // wait until persist
+        while(not_persist) {
+          if (log_flushers[flusher_id]->last_persist_ts >= ts) not_persist = false;
+        }
+        // if next ts ready
+        if (log_flushers[flusher_id]->last_persist_ts > ts) {
+          next_ts = get_log_ts(flusher_id);
+          next_queue.push({next_ts, flusher_id<<1});
+        }
+        // not ready but in group
+        // TODO: need check again?
+        else if ((next_ts = log_flushers[flusher_id]->oldest_no_persist_ts.load()) > ts) {
+          next_queue.push({next_ts, (flusher_id<<1)|1});
+        }
+        // not ready not in group no end
+        else if (!log_flushers[flusher_id]->log_end_signal.load()) {
+          stall_flusher.push_back(flusher_id);
+        }
+        // stoped
+        else {
+          next_queue.push({UINT64_MAX,flusher_id<<1});
+        }
+      }
+    }
+  }
+
+  virtual void do_replay_thread() {
+    while (true) {
+      int flusher_id = get_next_flusher_id();
+      if (flusher_id == -1) break;
+      else {
+        do_replay(flusher_id);
+      }
+    }
+  }
 
 
 };
