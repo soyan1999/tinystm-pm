@@ -9,6 +9,9 @@
 __thread uint64_t last_persist_ts = 0;
 
 LogFlusher **log_flushers;
+LogReplayer *log_replayer;
+
+
 
 // TODO: use std::atomic?
 // sync tx thread and log thread
@@ -341,12 +344,17 @@ class LogReplayer {
 
 };
 
-void init_log_flushers() {
+void init_logers() {
   log_flushers = (LogFlusher **)malloc(sizeof(LogFlusher *) * LogFlusher::total_flusher_num);
   for (int i = 0; i < LogFlusher::total_flusher_num; i ++) {
     if (FLUSHER_TYPE == 0) log_flushers[i] = new LogFlusher(i);
     else if (FLUSHER_TYPE == 1) log_flushers[i] = new CombinedLogFlusher(i);
   }
+  log_replayer = new LogReplayer();
+}
+
+void create_log_threads() {
+
 }
 
 /*
