@@ -13,6 +13,8 @@
 #define VLOG_COLLECTER_CAPACITY 20
 #define VLOG_FREE_CAPACITY 30
 
+#define FREE_VLOG_PER_THREAD 10
+
 // #ifdef __cplusplus
 // extern "C" {
 // #endif
