@@ -10,7 +10,7 @@ __thread uint64_t last_persist_ts = 0;
 
 // TODO: use std::atomic?
 // sync tx thread and log thread
-volatile bool pstm_stop_signal = false;
+std::atomic_bool pstm_stop_signal = false;
 
 
 
@@ -25,7 +25,7 @@ class LogFlusher {
 
   static const int total_flusher_num = 1;
   static const uint64_t log_area_size = PSTM_LOG_SIZE / total_flusher_num;
-  static const uint64_t log_page_num = log_area_size / PAGE_SIZE;
+  static const uint64_t log_page_num = log_area_size / PAGE_SIZE; //should be 2^n
 
   static const uint64_t wait_vlog_duration = 1000000;
 
@@ -34,7 +34,7 @@ class LogFlusher {
   void *log_start_ptr;
 
   ReadyVlogCollecter *ready_vlog_collecter;
-  FreeVlogCollecter *free_vlog_collecter;
+  std::vector<FreeVlogCollecter*> free_vlog_collecters;
 
   // flush condition
   std::chrono::steady_clock::time_point tx_oldest_time;
@@ -60,8 +60,13 @@ class LogFlusher {
     log_start_ptr = (void *)((uint64_t)pstm_nvram_logs_ptr + flusher_id * PAGE_SIZE);
     tx_count = 0;
     log_count = 0;
+    last_collect_ts = 0;
     last_persist_offset = 0;
     flush_offset = 0;
+    oldest_no_persist_ts = 0;
+    last_persist_ts = 0;
+
+    log_root_ptr = (log_root_t*)ptr_add(pstm_nvram_logs_root_ptr, flusher_id*sizeof(log_root_t)); 
   }
 
   inline void* gen_plog_ptr(uint64_t offset) {
@@ -80,7 +85,7 @@ class LogFlusher {
 
   void write_entry(void *entry, uint64_t size) {
     if (size != 0) {
-      uint64_t step_size = PAGE_SIZE - flush_offset % PAGE_SIZE;
+      uint64_t step_size = PAGE_SIZE - flush_offset & (PAGE_SIZE - 1);
 
       while (size >= step_size) {
         memcpy(gen_plog_ptr(flush_offset), entry, step_size);
@@ -158,9 +163,8 @@ class CombinedLogFlusher:LogFlusher {
   std::unordered_map<uint64_t,uint64_t> cb_table;
   
 
-  CombinedLogFlusher(int flusher_id, ReadyVlogCollecter *q1, FreeVlogCollecter *q2):LogFlusher(flusher_id) {
-    ready_vlog_collecter = q1;
-    free_vlog_collecter = q2;
+  CombinedLogFlusher(int flusher_id):LogFlusher(flusher_id) {
+    ready_vlog_collecter = new ReadyVlogCollecter(max_flush_tx_count * 2);
   }
 
   void do_flush_cb_table() {
@@ -188,7 +192,7 @@ class CombinedLogFlusher:LogFlusher {
   }
 
   virtual void do_flush_thread() { // TODO : update log_root
-    while (!pstm_stop_signal && ready_vlog_collecter->empty()) {
+    while (!pstm_stop_signal.load() && ready_vlog_collecter->empty()) {
       // read ts in cb_table
       if (monotonic_signal.load() && last_collect_ts >= monotonic_read_ts && tx_count != 0) {
         do_flush_cb_table();
