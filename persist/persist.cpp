@@ -40,13 +40,13 @@ void pstm_after_store(uint64_t *addr, uint64_t value){
 }
 
 void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts) {
-  if (modify_ts > last_persist_ts && IS_PMEM(addr)) {
-    pstm_is_force_flush = 1;
+  if (IS_PMEM(addr)) {
+    pstm_plog_block_read(modify_ts);
   }
 }
 
 void pstm_before_tx_start() {
-  pstm_vlog_clear();
+  pstm_vlog_begin();
   if (ts1 == 0) {
     ts1 = rdtscp();
   }
@@ -62,8 +62,8 @@ void pstm_after_tx_commit(uint64_t ts) {
     return;
   }
   pstm_vlog_commit(ts);
-  pstm_plog_collect();
-  pstm_vlog_clear();
+  pstm_plog_commit();
+  // pstm_vlog_clear();
   ts4 = rdtscp();
 
   if (ts2 != 0) {
@@ -88,11 +88,11 @@ void pstm_before_tx_abort() {
   ts2 = 0;
   ts3 = 0;
   ts4 = 0;
-  pstm_vlog_clear();
+  // pstm_vlog_clear();
 }
 
 void pstm_before_thread_exit(){
-  pstm_vlog_free();
+  pstm_vlog_exit_thread();
   __sync_add_and_fetch(&tot_pstm_time_flush_redo_log, pstm_time_flush_redo_log);
   __sync_add_and_fetch(&tot_pstm_time_flush_data, pstm_time_flush_data);
   __sync_add_and_fetch(&tot_pstm_time_tx, pstm_time_tx);
@@ -104,6 +104,7 @@ void pstm_before_thread_exit(){
 
 void pstm_after_tm_exit() {
   pstm_plog_end();
+  pstm_vlog_free();
   pstm_nvm_close();
   printf("nb_tx:\t\t%lu\nnb_flush:\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\nforce_flush:\t%lf\n",
     tot_pstm_nb_tx,tot_pstm_nb_flush,

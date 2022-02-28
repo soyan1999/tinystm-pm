@@ -52,15 +52,15 @@ void pstm_nvm_create(int numThread) {
   pstm_nvram_heap_ptr = pstm_nvram_ptr;
   pstm_nvram_priv_heap_ptr = (void*)(((uintptr_t)pstm_nvram_ptr) + PSTM_SHARE_HEAP_SIZE);
   pstm_nvram_logs_root_ptr = alocateInNVRAM("/mnt/pmem0/ysha/tinystm-pm/", "nvmalloc_file_shar_log",
-    sizeof(log_root) + PSTM_LOG_SIZE,
+    sizeof(log_root)*TOTAL_FLUSHER_NUM + PSTM_LOG_SIZE,
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
-  pstm_nvram_logs_ptr = (void*)(((uintptr_t)pstm_nvram_logs_root_ptr) + sizeof(log_root));
+  pstm_nvram_logs_ptr = (void*)(((uintptr_t)pstm_nvram_logs_root_ptr) + sizeof(log_root)*TOTAL_FLUSHER_NUM);
 }
 
 void pstm_nvm_close() {
   int ret = munmap(pstm_nvram_ptr, PSTM_SHARE_HEAP_SIZE + PSTM_HEAP_SIZE_PER_THREAD * thread_count);
   assert(ret == 0);
-  ret = munmap(pstm_nvram_logs_root_ptr, sizeof(log_root) + PSTM_LOG_SIZE);
+  ret = munmap(pstm_nvram_logs_root_ptr, sizeof(log_root)*TOTAL_FLUSHER_NUM + PSTM_LOG_SIZE);
   assert(ret == 0);
 }
 

@@ -4,6 +4,7 @@
 #include <folly/MPMCQueue.h>
 #include <folly/ProducerConsumerQueue.h>
 #include <chrono>
+#include "plog.h"
 #include "pmem.h"
 #include "page.h"
 #include "global.h"
@@ -64,17 +65,23 @@ public:
 typedef struct pstm_vlog {
   uint64_t ts;
   uint64_t log_count;
+  uint64_t thread_id;
   uint64_t *buffer;
 } pstm_vlog_t;
 
-extern pstm_vlog_t **pstm_vlogs;
+
+extern FreeVlogCollecter **free_vlog_collecters;
+extern ReadyVlogCollecter **ready_vlog_collecters;
+extern __thread pstm_vlog_t *thread_vlog_entry;
 extern __thread int thread_id;
+extern __thread int flusher_id;
 extern int thread_count;
 
 
 void pstm_vlog_init(int thread_num);
 void pstm_vlog_init_thread(int threadID);
-void pstm_vlog_clear();
+void pstm_vlog_exit_thread();
+void pstm_vlog_begin();
 void pstm_vlog_collect(void *addr, uint64_t value);
 void pstm_vlog_commit(uint64_t ts);
 void pstm_vlog_free();

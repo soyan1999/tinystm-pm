@@ -6,12 +6,12 @@
 #include <folly/SpinLock.h>
 
 
-__thread uint64_t last_persist_ts = 0;
+// __thread uint64_t last_persist_ts = 0;
 
-LogFlusher **log_flushers;
-LogReplayer *log_replayer;
+// LogFlusher **log_flushers;
+// LogReplayer *log_replayer;
 
-
+std::vector<std::thread> log_thread_pool;
 
 // TODO: use std::atomic?
 // sync tx thread and log thread
@@ -39,7 +39,7 @@ class LogFlusher {
   void *log_start_ptr;
 
   ReadyVlogCollecter *ready_vlog_collecter;
-  std::vector<FreeVlogCollecter*> free_vlog_collecters;
+  // std::vector<FreeVlogCollecter*> free_vlog_collecters;
 
   // flush condition
   std::chrono::steady_clock::time_point tx_oldest_time;
@@ -51,11 +51,12 @@ class LogFlusher {
   uint64_t flush_offset;
   uint64_t last_collect_ts;
   std::atomic_uint64_t oldest_no_persist_ts; //TODO:update after collect and flush
+  std::atomic_uint64_t replay_offset;
 
   // monotonic read
   std::atomic_bool monotonic_signal = false;
   volatile uint64_t monotonic_read_ts;
-  volatile uint64_t last_persist_ts;
+  std::atomic_uint64_t last_persist_ts;
   folly::SpinLock monotonic_signal_lock;
 
   // sync log thread and replay thread
@@ -84,13 +85,13 @@ class LogFlusher {
     return (void *)((uint64_t)ptr + offset);
   }
 
-  inline uint64_t get_replay_offset() {
-    return log_root_ptr->log_end_off;
-  }
 
   void write_entry(void *entry, uint64_t size) {
+    // block until log_space avaliable
+    while (flush_offset - replay_offset.load() > log_area_size - size);
+
     if (size != 0) {
-      uint64_t step_size = PAGE_SIZE - flush_offset & (PAGE_SIZE - 1);
+      uint64_t step_size = PAGE_SIZE - (flush_offset & (PAGE_SIZE - 1));
 
       while (size >= step_size) {
         memcpy(gen_plog_ptr(flush_offset), entry, step_size);
@@ -110,7 +111,7 @@ class LogFlusher {
     uint64_t flush_left = flush_offset - last_persist_offset;
     uint64_t flush_off = last_persist_offset;
     if (flush_left != 0) {
-      uint64_t step_size = PAGE_SIZE - last_persist_offset;
+      uint64_t step_size = PAGE_SIZE - (last_persist_offset & (PAGE_SIZE - 1));
 
       while (flush_left >= step_size) {
         void *flush_ptr = gen_plog_ptr(flush_off);
@@ -123,6 +124,11 @@ class LogFlusher {
         void *flush_ptr = gen_plog_ptr(flush_off);
         FLUSH_BLOCK(flush_ptr, ptr_add(flush_ptr, flush_left));
       }
+      FENCE_PREV_FLUSHES();
+      log_root_ptr->log_end_off = flush_offset;
+      FLUSH_CL(&log_root_ptr->log_end_off);
+      last_persist_offset = flush_offset;
+
     }
   }
 
@@ -157,19 +163,21 @@ class LogFlusher {
     write_entry(&(vlog->ts), 2*sizeof(uint64_t));
     write_entry(vlog->buffer,vlog->log_count*2*sizeof(uint64_t));
     flush_entry();
+    last_persist_ts = vlog->ts;
   }
 
   virtual void do_flush_thread();
 
 };
 
-class CombinedLogFlusher:LogFlusher {
+class CombinedLogFlusher: public LogFlusher {
  public:
   std::unordered_map<uint64_t,uint64_t> cb_table;
   
 
   CombinedLogFlusher(int flusher_id):LogFlusher(flusher_id) {
-    ready_vlog_collecter = new ReadyVlogCollecter(max_flush_tx_count * 2);
+    ready_vlog_collecter = ready_vlog_collecters[flusher_id];
+    
   }
 
   void do_flush_cb_table() {
@@ -205,7 +213,7 @@ class CombinedLogFlusher:LogFlusher {
       pstm_vlog_t *vlog = ready_vlog_collecter->get(wait_vlog_duration);
       if (vlog != nullptr) {
         collect_vlog(vlog);
-        free_vlog_collecter->put(vlog);
+        free_vlog_collecters[vlog->thread_id]->put(vlog);
         if (need_flush()) do_flush_cb_table();
       }
     }
@@ -215,7 +223,7 @@ class CombinedLogFlusher:LogFlusher {
 class LogReplayer {
  public:
   std::vector<uint64_t> last_replay_ts;//TODO:usage?
-  std::vector<LogFlusher*> log_flushers;
+  LogFlusher** log_flushers_ptr;
   std::list<int> stall_flusher;
 
   bool recover_flag = false;
@@ -225,16 +233,16 @@ class LogReplayer {
   // ts and log_flusher id(<<2) pair, the lower one bit indicate if the ts log no persist 
   std::priority_queue<std::pair<uint64_t,int>,std::vector<std::pair<uint64_t,int>>,std::greater<std::pair<uint64_t,int>>> next_queue;
 
-  LogReplayer():last_replay_ts(LogFlusher::total_flusher_num),log_flushers(LogFlusher::total_flusher_num, nullptr) {
-
+  LogReplayer(LogFlusher** log_flushers):last_replay_ts(LogFlusher::total_flusher_num),log_flushers_ptr(log_flushers) {
+  
   }
 
   inline void* gen_log_ptr(int flusher_id, uint64_t offset) {
-    return log_flushers[flusher_id]->gen_plog_ptr(offset);
+    return log_flushers_ptr[flusher_id]->gen_plog_ptr(offset);
   }
   
   inline uint64_t get_log_off(int flusher_id) {
-    return ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off;
+    return ((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off;
   }
 
   inline uint64_t get_log_data(int flusher_id, uint64_t offset) {
@@ -242,12 +250,12 @@ class LogReplayer {
   }
 
   inline uint64_t get_log_ts(int flusher_id) {
-    uint64_t offset = ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off;
+    uint64_t offset = ((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off;
     return get_log_data(flusher_id, offset);
   }
 
   void do_replay(int flusher_id) {
-    uint64_t replay_offset = ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off;
+    uint64_t replay_offset = ((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off;
     uint64_t ts = get_log_data(flusher_id, replay_offset);
     replay_offset += 8;
     uint64_t log_size = get_log_data(flusher_id, replay_offset);
@@ -264,8 +272,8 @@ class LogReplayer {
     }
 
     FENCE_PREV_FLUSHES();
-    ((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off = replay_offset;
-    FLUSH_CL(&(((log_root_t *)log_flushers[flusher_id]->log_root_ptr)->log_start_off));
+    ((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off = replay_offset;
+    FLUSH_CL(&(((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off));
     FENCE_PREV_FLUSHES();
 
     last_replay_ts[flusher_id] = ts;
@@ -273,14 +281,14 @@ class LogReplayer {
 
   int get_next_flusher_id() {
     if (LogFlusher::total_flusher_num == 1) {
-      if (last_replay_ts[0] >= log_flushers[0]->last_persist_ts && log_flushers[0]->log_end_signal.load()) return -1;
+      if (last_replay_ts[0] >= log_flushers_ptr[0]->last_persist_ts && log_flushers_ptr[0]->log_end_signal.load()) return -1;
       else return 0;
     }
     else {
       // ASSERT(next_queue.size() == LogFlusher::total_flusher_num);
       // check stall flusher , if no stall add to heap
       for (auto it = stall_flusher.begin(); it != stall_flusher.end(); ++it) {
-        if (!log_flushers[*it]->ready_vlog_collecter->empty() || log_flushers[*it]->oldest_no_persist_ts.load() > last_replay_ts[*it]) {
+        if (!log_flushers_ptr[*it]->ready_vlog_collecter->empty() || log_flushers_ptr[*it]->oldest_no_persist_ts.load() > last_replay_ts[*it]) {
           while(true) {
             uint64_t next_ts = get_log_ts(*it);
             if (next_ts >= last_replay_ts[*it]) {
@@ -291,7 +299,7 @@ class LogReplayer {
           }
           // TODO:if oldest_no_persist_ts changed
           // else {
-          //   while ((next_ts = log_flushers[*it]->oldest_no_persist_ts.load()) <= last_replay_ts[*it]);
+          //   while ((next_ts = log_flushers_ptr[*it]->oldest_no_persist_ts.load()) <= last_replay_ts[*it]);
           //   next_queue.push({next_ts, ((*it)<<1)|1});
           // }
         }
@@ -307,20 +315,20 @@ class LogReplayer {
         int not_persist = rt.second & 1;
         // wait until persist
         while(not_persist) {
-          if (log_flushers[flusher_id]->last_persist_ts >= ts) not_persist = false;
+          if (log_flushers_ptr[flusher_id]->last_persist_ts >= ts) not_persist = false;
         }
         // if next ts ready
-        if (log_flushers[flusher_id]->last_persist_ts > ts) {
+        if (log_flushers_ptr[flusher_id]->last_persist_ts > ts) {
           next_ts = get_log_ts(flusher_id);
           next_queue.push({next_ts, flusher_id<<1});
         }
         // not ready but in group
         // TODO: need check again?
-        else if ((next_ts = log_flushers[flusher_id]->oldest_no_persist_ts.load()) > ts) {
+        else if ((next_ts = log_flushers_ptr[flusher_id]->oldest_no_persist_ts.load()) > ts) {
           next_queue.push({next_ts, (flusher_id<<1)|1});
         }
         // not ready not in group no end
-        else if (!log_flushers[flusher_id]->log_end_signal.load()) {
+        else if (!log_flushers_ptr[flusher_id]->log_end_signal.load()) {
           stall_flusher.push_back(flusher_id);
         }
         // stoped
@@ -344,17 +352,72 @@ class LogReplayer {
 
 };
 
+LogFlusher **log_flushers;
+LogReplayer *log_replayer;
+
 void init_logers() {
   log_flushers = (LogFlusher **)malloc(sizeof(LogFlusher *) * LogFlusher::total_flusher_num);
   for (int i = 0; i < LogFlusher::total_flusher_num; i ++) {
     if (FLUSHER_TYPE == 0) log_flushers[i] = new LogFlusher(i);
     else if (FLUSHER_TYPE == 1) log_flushers[i] = new CombinedLogFlusher(i);
   }
-  log_replayer = new LogReplayer();
+  log_replayer = new LogReplayer(log_flushers);
 }
 
 void create_log_threads() {
+  if (FLUSHER_TYPE != 0) {
+    for (int i = 0; i < LogFlusher::total_flusher_num; i++) {
+      log_thread_pool.push_back(std::thread(&LogFlusher::do_flush_thread, &(log_flushers[i])));
+    }
+  }
+  log_thread_pool.push_back(std::thread(&LogReplayer::do_replay_thread, log_replayer));
+}
 
+void join_log_threads() {
+  for (int i = 0; i < log_thread_pool.size(); i ++) {
+    log_thread_pool[i].join();
+  }
+}
+
+void pstm_plog_commit() {
+  if (FLUSHER_TYPE == 0)
+    log_flushers[thread_id]->do_flush_vlog(thread_vlog_entry);
+}
+
+void pstm_plog_block_read(uint64_t ts) {
+  log_flushers[flusher_id]->block_until_persist(ts);
+}
+
+void pstm_plog_init() {
+  init_logers();
+  for (int i = 0; i < TOTAL_FLUSHER_NUM; i ++) {
+    log_root_t *log_root = log_flushers[i]->log_root_ptr;
+  // if (log_root->crash) {
+  //   // TODO
+  // }
+  // else {
+    log_root->log_end_off = 0;
+    log_root->log_start_off = 0;
+    FLUSH_CL(&log_root->log_start_off);
+    FLUSH_CL(&log_root->log_end_off);
+    FENCE_PREV_FLUSHES();
+    log_root->crash = 1;
+    FLUSH_CL(&log_root->crash);
+    FENCE_PREV_FLUSHES();
+  // }
+  }
+  create_log_threads();
+}
+
+void pstm_plog_end() {
+  join_log_threads();
+  for (int i = 0; i < TOTAL_FLUSHER_NUM; i ++) {
+    log_root_t *log_root = log_flushers[i]->log_root_ptr;
+  
+    log_root->crash = 0;
+    FLUSH_CL(&log_root->crash);
+    FENCE_PREV_FLUSHES();
+  }
 }
 
 /*

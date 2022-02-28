@@ -1,15 +1,17 @@
 #include "vlog.h"
 #include "page.h"
 
-pstm_vlog_t **pstm_vlogs;
+__thread pstm_vlog_t *thread_vlog_entry;
 FreeVlogCollecter **free_vlog_collecters;
 ReadyVlogCollecter **ready_vlog_collecters;
 __thread int thread_id;
+__thread int flusher_id;
 int thread_count;
 
 void pstm_vlog_init(int thread_num) {
   thread_count = thread_num;
   free_vlog_collecters = (FreeVlogCollecter **)malloc(sizeof(FreeVlogCollecter *) * thread_num);
+  ready_vlog_collecters = (ReadyVlogCollecter **)malloc(sizeof(ReadyVlogCollecter *) * TOTAL_FLUSHER_NUM);
   for (int i = 0; i < thread_num; i ++) {
     free_vlog_collecters[i] = new FreeVlogCollecter(FREE_VLOG_PER_THREAD);
     for (int j = 0; j < FREE_VLOG_PER_THREAD; j ++) {
@@ -17,34 +19,54 @@ void pstm_vlog_init(int thread_num) {
       vlog->buffer = (uint64_t*)malloc(VLOG_BUFEER_SIZE);
       vlog->ts = 0;
       vlog->log_count = 0;
+      vlog->thread_id = i;
       free_vlog_collecters[i]->put(vlog);
     }
+  }
+  for (int i = 0; i < TOTAL_FLUSHER_NUM; i ++) {
+    ready_vlog_collecters[i] = new ReadyVlogCollecter(FREE_VLOG_PER_THREAD);
   }
 }
 
 void pstm_vlog_init_thread(int threadID) {
   // thread_id = (int)__sync_fetch_and_add(&thread_count,1);
   thread_id = threadID;
+  flusher_id = thread_id % TOTAL_FLUSHER_NUM;
+  if (FLUSHER_TYPE == 0) thread_vlog_entry = free_vlog_collecters[thread_id]->get();
 }
 
-void pstm_vlog_clear() {
-  pstm_vlogs[thread_id]->log_count = 0;
+void pstm_vlog_exit_thread() {
+  if (thread_vlog_entry != NULL) {
+    free(thread_vlog_entry->buffer);
+    free(thread_vlog_entry);
+  }
+}
+
+void pstm_vlog_begin() {
+  if (FLUSHER_TYPE != 0 && thread_vlog_entry != NULL) {
+    thread_vlog_entry = free_vlog_collecters[thread_id]->get();
+  }
+  thread_vlog_entry->log_count = 0;
 }
 
 // TODO: modify in log entry
 void pstm_vlog_collect(void *addr, uint64_t value) {
-  uint64_t log_count = pstm_vlogs[thread_id]->log_count;
+  uint64_t log_count = thread_vlog_entry->log_count;
 
   assert(log_count <= VLOG_MAX_NUM);
 
   if(!IS_PMEM(addr)) return;
-  pstm_vlogs[thread_id]->buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
-  pstm_vlogs[thread_id]->buffer[log_count * 2 + 1] = value;
-  pstm_vlogs[thread_id]->log_count ++;
+  thread_vlog_entry->buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
+  thread_vlog_entry->buffer[log_count * 2 + 1] = value;
+  thread_vlog_entry->log_count ++;
 }
 
 void pstm_vlog_commit(uint64_t ts) {
-  pstm_vlogs[thread_id]->ts = ts;
+  thread_vlog_entry->ts = ts;
+  if (FLUSHER_TYPE != 0) {
+    ready_vlog_collecters[flusher_id]->put(thread_vlog_entry);
+    thread_vlog_entry = NULL;
+  }
 }
 
 void pstm_vlog_free() {
