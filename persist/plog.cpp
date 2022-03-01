@@ -167,7 +167,7 @@ class LogFlusher {
     last_persist_ts = vlog->ts;
   }
 
-  virtual void do_flush_thread();
+  virtual void do_flush_thread() {}
 
 };
 

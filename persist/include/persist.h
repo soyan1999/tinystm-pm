@@ -2,8 +2,8 @@
 #define _PERSIST_H_
 
 // #include "global.h"
-// #include "pmem.h"
-// #include "page.h"
+#include "pmem.h"
+#include "page.h"
 // #include "plog.h"
 // #include "vlog.h"
 #include <stdint.h>

@@ -9,7 +9,7 @@
 #define IS_END_FLAG(flag)     (flag&0x2)
 
 #define INC_LOG_PTR(ptr)      (ptr=(ptr+1)&(PSTM_LOG_SIZE-1))
-#define FLUSHER_TYPE          1
+#define FLUSHER_TYPE          0
 #define TOTAL_FLUSHER_NUM     1
 
 // #ifdef __cplusplus

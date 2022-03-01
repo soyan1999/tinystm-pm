@@ -1,4 +1,5 @@
 #include "pmem.h"
+#include "vlog.h"
 
 void *pstm_nvram_ptr = NULL;
 void *pstm_nvram_heap_ptr = NULL;

@@ -1,4 +1,5 @@
 #include "page.h"
+#include "vlog.h"
 
 void *pstm_dram_ptr = NULL;
 

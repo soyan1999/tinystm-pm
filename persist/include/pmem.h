@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #include "global.h"
-#include "vlog.h"
+// #include "vlog.h"
 
 #define FLUSH_X86_INST       "clwb"
 // #define FLUSH_X86_INST    "clflushopt"
@@ -74,9 +74,9 @@
 #define PSTM_LOG_SIZE (4UL*1024*1024*1024)
 
 
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 
 extern void *pstm_nvram_ptr;
@@ -99,7 +99,7 @@ void pstm_nvm_close();
 void *pstm_nvmalloc(long);
 void *pstm_local_nvmalloc(int, long);
 
-// #ifdef __cplusplus
-// }
-// #endif
+#ifdef __cplusplus
+}
+#endif
 #endif
