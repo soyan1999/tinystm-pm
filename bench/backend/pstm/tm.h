@@ -132,7 +132,7 @@ do { \
 //
 
 # define TM_END() \
-  {int ts = stm_commit();pstm_after_tx_commit(ts);!!ts;} \
+  {int ts = stm_commit();!!ts;} \
 //
 
 # define TM_RESTART()                  stm_abort(0)

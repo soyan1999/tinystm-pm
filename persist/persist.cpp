@@ -35,8 +35,8 @@ void pstm_after_thread_start(int threadID){
   pstm_vlog_init_thread(threadID);
 }
 
-void pstm_after_store(uint64_t *addr, uint64_t value){
-  pstm_vlog_collect(addr, value);
+void pstm_after_store(uint64_t *addr, uint64_t value, uint64_t index){
+  pstm_vlog_collect(addr, value, index);
 }
 
 void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts) {
@@ -47,52 +47,53 @@ void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts) {
 
 void pstm_before_tx_start() {
   pstm_vlog_begin();
-  if (ts1 == 0) {
-    ts1 = rdtscp();
-  }
+  // if (ts1 == 0) {
+  //   ts1 = rdtscp();
+  // }
   
 }
 
-void pstm_after_tx_commit(uint64_t ts) {
-  if (ts == 0) {
-    ts1 = 0;
-    return;
-  }
-  if (ts == 1) {
-    return;
-  }
+void pstm_before_tx_commit(uint64_t ts) {
+  // if (ts == 0) {
+  //   ts1 = 0;
+  //   return;
+  // }
+  // if (ts == 1) {
+  //   return;
+  // }
   pstm_vlog_commit(ts);
   pstm_plog_commit();
   // pstm_vlog_clear();
-  ts4 = rdtscp();
+  // ts4 = rdtscp();
 
-  if (ts2 != 0) {
-    pstm_time_flush_redo_log += ts3 - ts2;
-    pstm_time_flush_data += ts4 - ts3;
+  // if (ts2 != 0) {
+  //   pstm_time_flush_redo_log += ts3 - ts2;
+  //   pstm_time_flush_data += ts4 - ts3;
 
-    pstm_nb_flush ++;
-  }
-  pstm_time_tx += ts4 - ts1;
-  pstm_nb_force_flush += pstm_is_force_flush;
-  pstm_is_force_flush = 0;
-  pstm_nb_tx ++;
+  //   pstm_nb_flush ++;
+  // }
+  // pstm_time_tx += ts4 - ts1;
+  // pstm_nb_force_flush += pstm_is_force_flush;
+  // pstm_is_force_flush = 0;
+  // pstm_nb_tx ++;
 
-  ts1 = 0;
-  ts2 = 0;
-  ts3 = 0;
-  ts4 = 0;
+  // ts1 = 0;
+  // ts2 = 0;
+  // ts3 = 0;
+  // ts4 = 0;
 }
 
 void pstm_before_tx_abort() {
-  ts1 = 0;
-  ts2 = 0;
-  ts3 = 0;
-  ts4 = 0;
+  // ts1 = 0;
+  // ts2 = 0;
+  // ts3 = 0;
+  // ts4 = 0;
   // pstm_vlog_clear();
 }
 
 void pstm_before_thread_exit(){
   pstm_vlog_exit_thread();
+  pstm_plog_exit_thread();
   __sync_add_and_fetch(&tot_pstm_time_flush_redo_log, pstm_time_flush_redo_log);
   __sync_add_and_fetch(&tot_pstm_time_flush_data, pstm_time_flush_data);
   __sync_add_and_fetch(&tot_pstm_time_tx, pstm_time_tx);

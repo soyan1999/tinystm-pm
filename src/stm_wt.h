@@ -333,7 +333,7 @@ stm_wt_write(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_word
           if (mask != ~(stm_word_t)0)
             value = (ATOMIC_LOAD(addr) & ~mask) | (value & mask);
           ATOMIC_STORE(addr, value);
-          pstm_after_store((uint64_t *)addr, value);
+          pstm_after_store((uint64_t *)addr, value, ((uint64_t)w-(uint64_t)tx->w_set.entries)/sizeof(w_entry_t));
           return w;
         }
         if (prev->next == NULL) {
@@ -437,7 +437,7 @@ do_write:
     if (mask != ~(stm_word_t)0)
       value = (w->value & ~mask) | (value & mask);
     ATOMIC_STORE(addr, value);
-    pstm_after_store((uint64_t *)addr, value);
+    pstm_after_store((uint64_t *)addr, value, UINT64_MAX);
   }
   w->next = NULL;
   if (prev != NULL) {
@@ -509,7 +509,7 @@ stm_wt_WaW(stm_tx_t *tx, volatile stm_word_t *addr, stm_word_t value, stm_word_t
     value = (ATOMIC_LOAD(addr) & ~mask) | (value & mask);
   }
   ATOMIC_STORE(addr, value);
-  pstm_after_store((uint64_t *)addr, value);
+  pstm_after_store((uint64_t *)addr, value, UINT64_MAX);
 }
 
 static INLINE int
@@ -563,6 +563,7 @@ stm_wt_commit(stm_tx_t *tx)
   release_locks:
 #endif /* IRREVOCABLE_ENABLED */
 
+  pstm_before_tx_commit(t);
   /* Make sure that the updates become visible before releasing locks */
   ATOMIC_MB_WRITE;
   /* Drop locks and set new timestamp */

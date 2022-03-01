@@ -20,6 +20,14 @@
 // extern "C" {
 // #endif
 
+
+typedef struct pstm_vlog {
+  uint64_t ts;
+  uint64_t log_count;
+  uint64_t thread_id;
+  uint64_t *buffer;
+} pstm_vlog_t;
+
 class ReadyVlogCollecter {
   folly::MPMCQueue<pstm_vlog_t*> vlog_queue;
 public:
@@ -58,16 +66,11 @@ public:
     while (!succ) {
       succ = vlog_pool.read(ret);
     }
+    return ret;
   }
 };
 
 
-typedef struct pstm_vlog {
-  uint64_t ts;
-  uint64_t log_count;
-  uint64_t thread_id;
-  uint64_t *buffer;
-} pstm_vlog_t;
 
 
 extern FreeVlogCollecter **free_vlog_collecters;
@@ -82,7 +85,7 @@ void pstm_vlog_init(int thread_num);
 void pstm_vlog_init_thread(int threadID);
 void pstm_vlog_exit_thread();
 void pstm_vlog_begin();
-void pstm_vlog_collect(void *addr, uint64_t value);
+void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index);
 void pstm_vlog_commit(uint64_t ts);
 void pstm_vlog_free();
 

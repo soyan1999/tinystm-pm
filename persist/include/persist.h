@@ -6,6 +6,7 @@
 // #include "page.h"
 // #include "plog.h"
 // #include "vlog.h"
+#include <stdint.h>
 
 
 #ifdef __cplusplus
@@ -19,10 +20,10 @@ extern __thread unsigned long pstm_size_flush;
 
 void pstm_before_tm_start(int numThread);                 // init nvm,vlog and shadowdram, set crash value
 void pstm_after_thread_start(int threadID);               // init thread_id
-void pstm_after_store(uint64_t *addr, uint64_t value);    // collect volatile log
+void pstm_after_store(uint64_t *addr, uint64_t value, uint64_t index);    // collect volatile log
 void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts);          // check read persist
 void pstm_before_tx_start();                              // collect ts
-void pstm_after_tx_commit(uint64_t ts);                   // collect and merge logs, flush
+void pstm_before_tx_commit(uint64_t ts);                   // collect and merge logs, flush, before release lock
 void pstm_before_tx_abort();                               // clean vlog
 void pstm_before_thread_exit();                           // free volatile log
 void pstm_after_tm_exit();                                // free collecter nvm and shadowdram, set crash value

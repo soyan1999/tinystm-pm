@@ -20,8 +20,9 @@
 
 void pstm_plog_init();
 void pstm_plog_commit();
+void pstm_plog_exit_thread();
 void pstm_plog_end();
-void pstm_plog_block_read(uint64_t ts)
+void pstm_plog_block_read(uint64_t ts);
 
 // #ifdef __cplusplus
 // }

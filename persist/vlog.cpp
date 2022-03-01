@@ -50,12 +50,16 @@ void pstm_vlog_begin() {
 }
 
 // TODO: modify in log entry
-void pstm_vlog_collect(void *addr, uint64_t value) {
+void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
   uint64_t log_count = thread_vlog_entry->log_count;
 
   assert(log_count <= VLOG_MAX_NUM);
 
   if(!IS_PMEM(addr)) return;
+  if (index != UINT64_MAX) {
+    ASSERT(thread_vlog_entry->buffer[index * 2] == (uint64_t)addr - (uint64_t)pstm_dram_ptr);
+    thread_vlog_entry->buffer[index * 2 + 1] = value;
+  }
   thread_vlog_entry->buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
   thread_vlog_entry->buffer[log_count * 2 + 1] = value;
   thread_vlog_entry->log_count ++;
