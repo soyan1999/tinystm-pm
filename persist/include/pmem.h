@@ -91,7 +91,8 @@ typedef struct log_root {
   uint64_t crash;
   uint64_t log_start_off;
   uint64_t log_end_off;
-  uint64_t padding[509];
+  uint64_t replay_ts;
+  uint64_t padding[508];
 } __attribute__((packed)) log_root_t;
 
 void pstm_nvm_create(int numThread);

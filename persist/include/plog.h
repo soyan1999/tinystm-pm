@@ -11,6 +11,7 @@
 #define INC_LOG_PTR(ptr)      (ptr=(ptr+1)&(PSTM_LOG_SIZE-1))
 #define FLUSHER_TYPE          0
 #define TOTAL_FLUSHER_NUM     1
+#define MAX_REPLAY_SIZE       10000
 
 // #ifdef __cplusplus
 // extern "C" {

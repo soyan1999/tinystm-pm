@@ -78,7 +78,7 @@ class LogFlusher {
   inline void* gen_plog_ptr(uint64_t offset) {
     // return (void *)((offset / PAGE_SIZE) * total_flusher_num * PAGE_SIZE + offset % PAGE_SIZE + (uint64_t)log_start_ptr);
     if (total_flusher_num == 1) return ptr_add(log_start_ptr, offset);
-    return (void *)((((offset>>12)&(log_page_num-1)) * total_flusher_num << 12) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
+    return (void *)((((offset>>12)&(log_page_num-1)) * (total_flusher_num << 12)) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
   }
 
   inline void* ptr_add(void* ptr, uint64_t offset) {
@@ -227,7 +227,7 @@ class CombinedLogFlusher: public LogFlusher {
 
 class LogReplayer {
  public:
-  std::vector<uint64_t> last_replay_ts;//TODO:usage?
+  std::vector<uint64_t> last_replay_ts;//TODO:combine update?
   LogFlusher** log_flushers_ptr;
   std::list<int> stall_flusher;
 
@@ -365,6 +365,97 @@ class LogReplayer {
   }
 
 
+};
+
+class LogCombineReplayer: public LogReplayer {
+ public:
+  std::unordered_map<uint64_t,uint64_t> tb_combine, tb_write;
+  std::vector<uint64_t> replay_off_combine, replay_off_write;
+  uint64_t last_replay_ts_combine, last_replay_ts_write;
+  std::atomic_uint64_t ts_cb, ts_wrt;
+  std::atomic_bool replay_stop;
+
+  LogCombineReplayer(LogFlusher** log_flushers):LogReplayer(log_flushers),replay_off_combine(TOTAL_FLUSHER_NUM),replay_off_write(TOTAL_FLUSHER_NUM) {
+    ts_cb = 0;
+    ts_wrt = 0;
+    replay_stop = false;
+  }
+  
+  void do_replay_tb() {
+    for (auto it = tb_write.begin(); it != tb_write.end(); ++it) {
+      ((uint64_t*)pstm_nvram_heap_ptr)[((*it).first)>>3] = (*it).second;
+      FLUSH_CL((uint64_t*)pstm_nvram_heap_ptr + (((*it).first)>>3));
+    }
+    
+    FENCE_PREV_FLUSHES();
+    ((log_root_t *)log_flushers_ptr[0]->log_root_ptr)->replay_ts = last_replay_ts_write;
+    FLUSH_CL(&(((log_root_t *)log_flushers_ptr[0]->log_root_ptr)->replay_ts));
+    FENCE_PREV_FLUSHES();
+    for (int i = 0; i < TOTAL_FLUSHER_NUM; i ++) {
+      ((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off = replay_off_write[i];
+      FLUSH_CL(&(((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off));
+    }
+    FENCE_PREV_FLUSHES();
+  }
+
+  void do_replay_tb_thread() {
+    while(!replay_stop.load()) {
+      while(ts_wrt.load() > ts_cb.load() - 1);
+      do_replay_tb();
+      tb_write.clear();
+      ts_wrt++;
+    }
+    while(ts_wrt.load() < ts_cb.load()) {
+      do_replay_tb();
+      ts_wrt++;
+    }
+  }
+
+  void do_combine_log(int flusher_id) {
+    uint64_t replay_offset = ((log_root_t *)log_flushers_ptr[flusher_id]->log_root_ptr)->log_start_off;
+    uint64_t ts = get_log_data(flusher_id, replay_offset);
+    replay_offset += 8;
+    uint64_t log_size = get_log_data(flusher_id, replay_offset);
+    replay_offset += 8;
+
+    for (uint64_t i = 0; i < log_size; i++) {
+      uint64_t nvm_addr = get_log_data(flusher_id, replay_offset);
+      replay_offset += 8;
+      uint64_t value = get_log_data(flusher_id, replay_offset);
+      replay_offset += 8;
+      tb_combine[nvm_addr] = value;
+    }
+
+    replay_off_combine[flusher_id] = replay_offset;
+    last_replay_ts_combine = ts;
+
+    last_replay_ts[flusher_id] = ts;
+  }
+
+  virtual void do_replay_thread() {
+    std::thread th_wrt(&LogCombineReplayer::do_replay_tb_thread,this);
+    while (true) {
+      int flusher_id = get_next_flusher_id();
+      if (flusher_id == -1) break;
+      else {
+        do_combine_log(flusher_id);
+        if (tb_combine.size() > MAX_REPLAY_SIZE) {
+          while (ts_wrt.load() < ts_cb.load());
+          std::swap(tb_combine, tb_write);
+          replay_off_write = replay_off_combine;
+          last_replay_ts_write = last_replay_ts_combine;
+          ts_cb++;
+        }
+      }
+    }
+    while (ts_wrt.load() < ts_cb.load());
+    std::swap(tb_combine, tb_write);
+    replay_off_write = replay_off_combine;
+    last_replay_ts_write = last_replay_ts_combine;
+    ts_cb++;
+    replay_stop = true;
+    th_wrt.join();
+  }
 };
 
 LogFlusher **log_flushers;
