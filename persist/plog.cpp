@@ -171,6 +171,11 @@ class LogFlusher {
 
 };
 
+class LogFlusher2: public LogFlusher {
+ public:
+  
+};
+
 class CombinedLogFlusher: public LogFlusher {
  public:
   std::unordered_map<uint64_t,uint64_t> cb_table;
@@ -181,7 +186,7 @@ class CombinedLogFlusher: public LogFlusher {
     
   }
 
-  void do_flush_cb_table() {
+  void do_flush_cb_table(std::unordered_map<uint64_t,uint64_t> &cb_table, uint64_t last_collect_ts) {
     uint64_t log_head[2] = {last_collect_ts, cb_table.size()};
     write_entry(log_head, 2*sizeof(uint64_t));
     for (auto it = cb_table.begin(); it != cb_table.end(); ++it) {
@@ -190,11 +195,11 @@ class CombinedLogFlusher: public LogFlusher {
     flush_entry();
 
     cb_table.clear();
-    tx_count = 0;
+    // tx_count = 0;
     last_persist_ts = last_collect_ts;
   }
 
-  void collect_vlog(pstm_vlog_t *vlog) {
+  void collect_vlog(pstm_vlog_t *vlog, std::unordered_map<uint64_t,uint64_t> &cb_table) {
     if (tx_count == 0) {
       tx_oldest_time = std::chrono::steady_clock::now();
       oldest_no_persist_ts.store(vlog->ts);
@@ -212,17 +217,80 @@ class CombinedLogFlusher: public LogFlusher {
     while (!pstm_stop_signal.load() || !ready_vlog_collecter->empty()) {
       // read ts in cb_table
       if (monotonic_signal.load() && last_collect_ts >= monotonic_read_ts && last_persist_ts.load() < monotonic_read_ts && tx_count != 0) {
-        do_flush_cb_table();
+        do_flush_cb_table(cb_table, last_collect_ts);
+        tx_count = 0;
       }
       pstm_vlog_t *vlog = ready_vlog_collecter->get(wait_vlog_duration);
       if (vlog != nullptr) {
-        collect_vlog(vlog);
+        collect_vlog(vlog,cb_table);
         free_vlog_collecters[vlog->thread_id]->put(vlog);
-        if (need_flush(cb_table.size())) do_flush_cb_table();
+        if (need_flush(cb_table.size())) {
+          do_flush_cb_table(cb_table, last_collect_ts);
+          tx_count = 0;
+        }
       }
     }
     log_end_signal.store(true);
   }
+};
+
+class CombinedLogFlusher2:public CombinedLogFlusher {
+ public:
+  std::unordered_map<uint64_t,uint64_t> wrt_table;
+  std::atomic_uint64_t ts_cb, ts_wrt;
+  std::atomic_bool cb_stop;
+  uint64_t last_collect_ts_wrt;
+
+  CombinedLogFlusher2(int flusher_id):CombinedLogFlusher(flusher_id) {
+    ts_cb = 0;
+    ts_wrt = 0;
+    cb_stop = false;
+  }
+
+  void do_flush_table_thread() {
+    while(!cb_stop.load()) {
+      while(ts_wrt.load() > ts_cb.load() - 1);
+      do_flush_cb_table(wrt_table,last_collect_ts_wrt);
+      ts_wrt++;
+    }
+    while(ts_wrt.load() < ts_cb.load()) {
+      do_flush_cb_table(wrt_table,last_collect_ts_wrt);
+      ts_wrt++;
+    }
+  }
+
+  void end_cb_table() {
+    std::swap(wrt_table,cb_table);
+    last_collect_ts_wrt = last_collect_ts;
+    tx_count = 0;
+    ts_cb ++;
+  }
+
+  virtual void do_flush_thread() {
+    std::thread flush_thd(&CombinedLogFlusher2::do_flush_table_thread, this);
+    
+    while (!pstm_stop_signal.load() || !ready_vlog_collecter->empty()) {
+      // read ts in cb_table
+      if (monotonic_signal.load() && last_collect_ts >= monotonic_read_ts && last_collect_ts_wrt < monotonic_read_ts && tx_count != 0) {
+        while (ts_wrt.load() < ts_cb.load());
+        end_cb_table();
+      }
+      pstm_vlog_t *vlog = ready_vlog_collecter->get(wait_vlog_duration);
+      if (vlog != nullptr) {
+        collect_vlog(vlog,cb_table);
+        free_vlog_collecters[vlog->thread_id]->put(vlog);
+        if (need_flush(cb_table.size())) {
+          while (ts_wrt.load() < ts_cb.load());
+          end_cb_table();
+        }
+      }
+    }
+
+    cb_stop.store(true);
+    flush_thd.join();
+    log_end_signal.store(true);
+  }
+
 };
 
 class LogReplayer {
@@ -453,6 +521,7 @@ class LogCombineReplayer: public LogReplayer {
     replay_off_write = replay_off_combine;
     last_replay_ts_write = last_replay_ts_combine;
     ts_cb++;
+    
     replay_stop = true;
     th_wrt.join();
   }
