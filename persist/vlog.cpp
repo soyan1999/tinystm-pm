@@ -13,7 +13,7 @@ void pstm_vlog_init(int thread_num) {
   free_vlog_collecters = (FreeVlogCollecter **)malloc(sizeof(FreeVlogCollecter *) * thread_num);
   ready_vlog_collecters = (ReadyVlogCollecter **)malloc(sizeof(ReadyVlogCollecter *) * TOTAL_FLUSHER_NUM);
   for (int i = 0; i < thread_num; i ++) {
-    free_vlog_collecters[i] = new FreeVlogCollecter(FREE_VLOG_PER_THREAD);
+    free_vlog_collecters[i] = new FreeVlogCollecter(FREE_VLOG_PER_THREAD+1);
     for (int j = 0; j < FREE_VLOG_PER_THREAD; j ++) {
       pstm_vlog_t *vlog = (pstm_vlog_t *)malloc(sizeof(pstm_vlog_t));
       vlog->buffer = (uint64_t*)malloc(VLOG_BUFEER_SIZE);
@@ -24,7 +24,7 @@ void pstm_vlog_init(int thread_num) {
     }
   }
   for (int i = 0; i < TOTAL_FLUSHER_NUM; i ++) {
-    ready_vlog_collecters[i] = new ReadyVlogCollecter(FREE_VLOG_PER_THREAD);
+    ready_vlog_collecters[i] = new ReadyVlogCollecter(READY_VLOG_PER_FLUSHER+1);
   }
 }
 
@@ -67,7 +67,7 @@ void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
 
 void pstm_vlog_commit(uint64_t ts) {
   thread_vlog_entry->ts = ts;
-  if (FLUSHER_TYPE != 0) {
+  if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0) {
     ready_vlog_collecters[flusher_id]->put(thread_vlog_entry);
     thread_vlog_entry = NULL;
   }
@@ -75,7 +75,7 @@ void pstm_vlog_commit(uint64_t ts) {
 
 void pstm_vlog_free() {
   for (int i = 0; i < thread_count; i ++) {
-    for (int j = 0; j < FREE_VLOG_PER_THREAD; j ++) {
+    while (!free_vlog_collecters[i]->empty()) {
       pstm_vlog_t *vlog = free_vlog_collecters[i]->get();
       free(vlog->buffer);
       free(vlog);

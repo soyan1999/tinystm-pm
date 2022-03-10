@@ -36,6 +36,8 @@ cp ../backend/$backend/tm.h lib/
 # cp ../../pmdk/pmdk.h lib/
 # cp ../../persist/include/persist.h lib/
 
+../../build.sh $backend $2
+
 CPU_FREQ=$(cat CPU_FREQ_kHZ.txt | tr -d '[:space:]')
 for F in $FOLDERS
 do

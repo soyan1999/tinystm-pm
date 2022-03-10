@@ -15,6 +15,7 @@
 #define VLOG_FREE_CAPACITY 30
 
 #define FREE_VLOG_PER_THREAD 10
+#define READY_VLOG_PER_FLUSHER 100
 
 // #ifdef __cplusplus
 // extern "C" {
@@ -67,6 +68,10 @@ public:
       succ = vlog_pool.read(ret);
     }
     return ret;
+  }
+
+  bool empty() {
+    return vlog_pool.isEmpty();
   }
 };
 

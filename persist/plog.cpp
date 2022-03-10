@@ -24,7 +24,7 @@ class LogFlusher {
   static const uint64_t min_flush_log_count = 31;
   static const uint64_t max_flush_log_count = 127;
   static const uint64_t min_flush_tx_count = 5;
-  static const uint64_t max_flush_tx_count = 100;
+  static const uint64_t max_flush_tx_count = READY_VLOG_PER_FLUSHER;
   static const int64_t min_flush_duration = 10000;
   static const int64_t max_flush_duration = 100000;
 
@@ -97,8 +97,9 @@ class LogFlusher {
         memcpy(gen_plog_ptr(flush_offset), entry, step_size);
         entry = ptr_add(entry, step_size);
         flush_offset += step_size;
-        step_size = PAGE_SIZE;
+        
         size -= step_size;
+        step_size = PAGE_SIZE;
       }
       if (size > 0) {
         memcpy(gen_plog_ptr(flush_offset), entry, size);
@@ -117,8 +118,9 @@ class LogFlusher {
         void *flush_ptr = gen_plog_ptr(flush_off);
         FLUSH_BLOCK(flush_ptr, ptr_add(flush_ptr, step_size));
         flush_off += step_size;
-        step_size = PAGE_SIZE;
+        
         flush_left -= step_size;
+        step_size = PAGE_SIZE;
       }
       if (flush_left > 0) {
         void *flush_ptr = gen_plog_ptr(flush_off);
@@ -555,7 +557,7 @@ void join_log_threads() {
 }
 
 void pstm_plog_commit() {
-  if (FLUSHER_TYPE == 0)
+  if (FLUSHER_TYPE == 0 && thread_vlog_entry->log_count > 0)
     log_flushers[thread_id]->do_flush_vlog(thread_vlog_entry);
 }
 
