@@ -357,7 +357,10 @@ class LogReplayer {
   int get_next_flusher_id() {
     if (LogFlusher::total_flusher_num == 1) {
       if (last_replay_ts[0] >= log_flushers_ptr[0]->last_persist_ts.load() && log_flushers_ptr[0]->log_end_signal.load()) return -1;
-      else return 0;
+      else {
+        while (last_replay_ts[0] >= log_flushers_ptr[0]->last_persist_ts.load());
+        return 0;
+      }
     }
     else {
       // ASSERT(next_queue.size() == LogFlusher::total_flusher_num);
@@ -588,7 +591,7 @@ void pstm_plog_init() {
     FENCE_PREV_FLUSHES();
   // }
   }
-  if(FLUSHER_TYPE != 0) create_log_threads();
+  create_log_threads();
 }
 
 void pstm_plog_end() {
