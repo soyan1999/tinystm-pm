@@ -19,6 +19,8 @@
 
 // extern __thread uint64_t last_persist_ts;
 
+extern int flusher_count;
+
 void pstm_plog_init();
 void pstm_plog_commit();
 void pstm_plog_exit_thread();

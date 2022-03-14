@@ -100,7 +100,7 @@ void pstm_nvm_create(int numThread);
 void pstm_nvm_close();
 void *pstm_nvmalloc(long);
 void *pstm_local_nvmalloc(int, long);
-void pstm_nvm_check()
+void pstm_nvm_check();
 
 #ifdef __cplusplus
 }
