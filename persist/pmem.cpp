@@ -78,6 +78,10 @@ void *pstm_nvmalloc(long size)
     printf("[nvmalloc]: out of space\n");
     return (void*)-1;
   }
+  #ifdef PMEM_CHECK
+  memset(ptr,0,size);
+  memset(PADDR_TO_VADDR(ptr),0,size);
+  #endif
   return ptr;
 }
 
@@ -100,5 +104,17 @@ void *pstm_local_nvmalloc(int threadId, long size)
     printf("[local_nvmalloc %i]: out of space\n", threadId);
     return (void*)-1;
   }
+  #ifdef PMEM_CHECK
+  memset(ptr,0,size);
+  memset(PADDR_TO_VADDR(ptr),0,size);
+  #endif
   return ptr;
+}
+
+void pstm_nvm_check() {
+  #ifdef PMEM_CHECK
+  for (uint64_t i = 0; i < PSTM_SHARE_HEAP_SIZE + PSTM_HEAP_SIZE_PER_THREAD * thread_count; i += PAGE_SIZE) {
+    assert(memcmp((void *)((uint64_t)pstm_nvram_ptr+i),PADDR_TO_VADDR((void *)((uint64_t)pstm_nvram_ptr+i)),PAGE_SIZE) == 0);
+  }
+  #endif
 }

@@ -138,9 +138,13 @@ do { \
 # define TM_RESTART()                  stm_abort(0)
 # define TM_EARLY_RELEASE(var)
 
-# define TM_LOCAL_WRITE(var, val)      ({ var = val; var; })
-# define TM_LOCAL_WRITE_P(var, val)    ({ var = val; var; })
-# define TM_LOCAL_WRITE_D(var, val)    ({ var = val; var; })
+// # define TM_LOCAL_WRITE(var, val)      ({ var = val; var; })
+// # define TM_LOCAL_WRITE_P(var, val)    ({ var = val; var; })
+// # define TM_LOCAL_WRITE_D(var, val)    ({ var = val; var; })
+
+# define TM_LOCAL_WRITE(var, val)      stm_store((volatile stm_word_t *)(void *)&(var), (stm_word_t)val)
+# define TM_LOCAL_WRITE_P(var, val)    stm_store_ptr((volatile void **)(void *)&(var), val)
+# define TM_LOCAL_WRITE_D(var, val)    stm_store_double((volatile double *)(void *)&(var), val)
 
 # define TM_SHARED_READ(var)         stm_load((volatile stm_word_t *)(void *)&(var))
 // # define TM_SHARED_READ_P(var)       ((__typeof__(var)) stm_load_ptr((volatile void **)(void *)&(var)))

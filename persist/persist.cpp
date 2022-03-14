@@ -106,7 +106,9 @@ void pstm_before_thread_exit(){
 void pstm_after_tm_exit() {
   pstm_plog_end();
   pstm_vlog_free();
+  pstm_nvm_check();
   pstm_nvm_close();
+  pstm_dram_close();
   printf("nb_tx:\t\t%lu\nnb_flush:\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\nforce_flush:\t%lf\n",
     tot_pstm_nb_tx,tot_pstm_nb_flush,
     (double)tot_pstm_time_tx/(double)tot_pstm_nb_tx, 

@@ -61,8 +61,10 @@ long hm_insert(TM_ARGDECL List* set, long val)
 
                 // create the new node
                 Node* i = (Node*)TM_MALLOC(sizeof(Node));
-                i->m_val = val;
-                i->m_next = (Node*)(curr);
+                TM_LOCAL_WRITE(i->m_val, val);
+                TM_LOCAL_WRITE_P(i->m_next,(Node*)(curr));
+                // i->m_val = val;
+                // i->m_next = (Node*)(curr);
                 TM_SHARED_WRITE_P(insert_point->m_next, i);
 		return 1;
         }
