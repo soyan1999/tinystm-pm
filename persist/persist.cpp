@@ -53,6 +53,14 @@ void pstm_before_tx_start() {
   
 }
 
+void pstm_before_gen_ts() {
+
+}
+
+void pstm_after_gen_ts(uint64_t ts) {
+
+}
+
 void pstm_before_tx_commit(uint64_t ts) {
   // if (ts == 0) {
   //   ts1 = 0;

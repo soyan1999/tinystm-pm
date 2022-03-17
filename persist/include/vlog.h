@@ -3,7 +3,9 @@
 
 #include <folly/MPMCQueue.h>
 #include <folly/ProducerConsumerQueue.h>
+#include <folly/SpinLock.h>
 #include <chrono>
+#include <atomic>
 #include "plog.h"
 #include "pmem.h"
 #include "page.h"
@@ -17,6 +19,12 @@
 #define FREE_VLOG_PER_THREAD 10
 #define READY_VLOG_PER_FLUSHER 100
 
+#define VLOG_INVAILD    0
+#define VLOG_ABORT      1
+#define VLOG_PRE_COMMIT 2
+#define VLOG_COMMITTED  3
+#define VLOG_PERSISTED  4
+
 // #ifdef __cplusplus
 // extern "C" {
 // #endif
@@ -26,6 +34,7 @@ typedef struct pstm_vlog {
   uint64_t ts;
   uint64_t log_count;
   uint64_t thread_id;
+  std::atomic_uint64_t state;
   uint64_t *buffer;
 } pstm_vlog_t;
 
@@ -33,6 +42,9 @@ class ReadyVlogCollecter {
   folly::MPMCQueue<pstm_vlog_t*> vlog_queue;
 public:
   ReadyVlogCollecter(int capacity):vlog_queue(capacity) {}
+
+  // insert lock
+  folly::SpinLock vlog_collect_lock;
 
   void put(pstm_vlog_t *vlog) {
     vlog_queue.blockingWrite(vlog);

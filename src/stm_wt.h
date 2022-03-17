@@ -545,7 +545,9 @@ stm_wt_commit(stm_tx_t *tx)
 #endif /* IRREVOCABLE_ENABLED */
 
   /* Get commit timestamp (may exceed VERSION_MAX by up to MAX_THREADS) */
+  pstm_before_gen_ts();
   t = FETCH_INC_CLOCK + 1;
+  pstm_after_gen_ts(t);
 
 #ifdef IRREVOCABLE_ENABLED
   if (unlikely(tx->irrevocable))

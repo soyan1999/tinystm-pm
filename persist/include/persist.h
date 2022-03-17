@@ -23,6 +23,8 @@ void pstm_after_thread_start(int threadID);               // init thread_id
 void pstm_after_store(uint64_t *addr, uint64_t value, uint64_t index);    // collect volatile log
 void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts);          // check read persist
 void pstm_before_tx_start();                              // collect ts
+void pstm_before_gen_ts();                                // set log vaild and lock
+void pstm_after_gen_ts(uint64_t ts);                      // insert to queue and unlock
 void pstm_before_tx_commit(uint64_t ts);                   // collect and merge logs, flush, before release lock
 void pstm_before_tx_abort();                               // clean vlog
 void pstm_before_thread_exit();                           // free volatile log
