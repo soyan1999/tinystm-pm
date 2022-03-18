@@ -33,6 +33,7 @@ void pstm_before_tm_start(int numThread) {
 
 void pstm_after_thread_start(int threadID){
   pstm_vlog_init_thread(threadID);
+  void pstm_plog_init_thread();
 }
 
 void pstm_after_store(uint64_t *addr, uint64_t value, uint64_t index){

@@ -54,6 +54,7 @@ class LogFlusher {
   uint64_t last_collect_ts;
   std::atomic_uint64_t oldest_no_persist_ts; //TODO:update after collect and flush
   std::atomic_uint64_t replay_offset;
+  pstm_vlog_t *oldest_no_persist_vlog;
 
   // monotonic read
   std::atomic_bool monotonic_signal = false;
@@ -171,7 +172,7 @@ class LogFlusher {
   }
 
   void do_flush_vlog(pstm_vlog_t *vlog) {
-    wait_vlog_committed(vlog);
+    if (!wait_vlog_committed(vlog)) return;
     write_entry(&(vlog->ts), 2*sizeof(uint64_t));
     write_entry(vlog->buffer,vlog->log_count*2*sizeof(uint64_t));
     flush_entry();
@@ -188,14 +189,14 @@ class LogFlusher {
     uint64_t ret, state;
     ready_vlog_collecter->vlog_collect_lock.lock();
     if ((ret = last_persist_ts) > last_replay_ts);
-    else if (select_ts > thread_vlog_entry->ts && thread_vlog_entry->ts > last_replay_ts) {
-      while ((state = thread_vlog_entry->state) < VLOG_PERSISTED) {
+    else if (select_ts > oldest_no_persist_vlog->ts && oldest_no_persist_vlog->ts > last_replay_ts) {
+      while ((state = oldest_no_persist_vlog->state) < VLOG_PERSISTED) {
         if (state == VLOG_ABORT) {
           ret = UINT64_MAX;
           break;
         }
       }
-      if (ret != UINT64_MAX) ret = thread_vlog_entry->ts;
+      if (ret != UINT64_MAX) ret = oldest_no_persist_vlog->ts;
     }
     else ret = UINT64_MAX;
 
@@ -658,6 +659,10 @@ void join_log_threads() {
 void pstm_plog_commit() {
   if (FLUSHER_TYPE == 0 && thread_vlog_entry->log_count > 0)
     log_flushers[thread_id]->do_flush_vlog(thread_vlog_entry);
+}
+
+void pstm_plog_init_thread() {
+  if (FLUSHER_TYPE == 0) log_flushers[thread_id]->oldest_no_persist_vlog = thread_vlog_entry;
 }
 
 void pstm_plog_exit_thread() {

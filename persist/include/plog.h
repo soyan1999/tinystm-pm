@@ -23,6 +23,7 @@ extern int flusher_count;
 
 void pstm_plog_init();
 void pstm_plog_commit();
+void pstm_plog_init_thread();
 void pstm_plog_exit_thread();
 void pstm_plog_end();
 void pstm_plog_block_read(uint64_t ts);
