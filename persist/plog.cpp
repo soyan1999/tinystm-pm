@@ -3,7 +3,8 @@
 #include "persist.h"
 #include "rdtsc.h"
 #include <bits/stdc++.h>
-#include <folly/SpinLock.h>
+// #include <folly/SpinLock.h>
+#include <mutex>
 
 
 // __thread uint64_t last_persist_ts = 0;
@@ -60,10 +61,12 @@ class LogFlusher {
   std::atomic_bool monotonic_signal = false;
   volatile uint64_t monotonic_read_ts;
   std::atomic_uint64_t last_persist_ts;
-  folly::SpinLock monotonic_signal_lock;
+  std::mutex monotonic_signal_lock;
 
   // sync log thread and replay thread
   std::atomic_bool log_end_signal = false; // TODO: update after log end
+
+  std::list<uint64_t> persist_ts;
 
   LogFlusher(int flusher_id):flusher_id(flusher_id) {
     log_start_ptr = (void *)((uint64_t)pstm_nvram_logs_ptr + flusher_id * PAGE_SIZE);
@@ -76,6 +79,7 @@ class LogFlusher {
     last_persist_ts = 0;
 
     log_root_ptr = (log_root_t*)ptr_add(pstm_nvram_logs_root_ptr, flusher_id*sizeof(log_root_t)); 
+    ready_vlog_collecter = ready_vlog_collecters[flusher_id];
   }
 
   inline void* gen_plog_ptr(uint64_t offset) {
@@ -183,26 +187,14 @@ class LogFlusher {
     ready_vlog_collecter->vlog_collect_lock.unlock();
   }
 
-  // if last_persist_ts > last_replay_ts return last_persist_ts
-  // else if last_replay_ts < ts < select_ts wait until persist or abort
-  virtual uint64_t get_recent_ts(uint64_t last_replay_ts, uint64_t select_ts) {
-    uint64_t ret, state;
-    ready_vlog_collecter->vlog_collect_lock.lock();
-    if ((ret = last_persist_ts) > last_replay_ts);
-    else if (select_ts > oldest_no_persist_vlog->ts && oldest_no_persist_vlog->ts > last_replay_ts) {
-      while ((state = oldest_no_persist_vlog->state) < VLOG_PERSISTED) {
-        if (state == VLOG_ABORT) {
-          ret = UINT64_MAX;
-          break;
-        }
-      }
-      if (ret != UINT64_MAX) ret = oldest_no_persist_vlog->ts;
-    }
-    else ret = UINT64_MAX;
-
-    ready_vlog_collecter->vlog_collect_lock.unlock();
-    return ret;
-  }
+  // get last_ready ts
+  // virtual uint64_t get_last_ready_ts() {
+  //   uint64_t ts;
+  //   ready_vlog_collecter->vlog_collect_lock.lock();
+  //   ts = ready_vlog_collecter->last_ready_ts;
+  //   ready_vlog_collecter->vlog_collect_lock.unlock();
+  //   return ts;
+  // }
 
   virtual void do_flush_thread() {}
 
@@ -219,7 +211,7 @@ class CombinedLogFlusher: public LogFlusher {
   
 
   CombinedLogFlusher(int flusher_id):LogFlusher(flusher_id) {
-    ready_vlog_collecter = ready_vlog_collecters[flusher_id];
+    // ready_vlog_collecter = ready_vlog_collecters[flusher_id];
     
   }
 
@@ -243,7 +235,7 @@ class CombinedLogFlusher: public LogFlusher {
     }
 
     // if tx abort just skip
-    if (wait_vlog_committed(vlog)) return;
+    if (!wait_vlog_committed(vlog)) return;
 
     uint64_t *log_ptr = vlog->buffer;
     for (uint64_t i = 0; i < vlog->log_count; i ++) {
@@ -343,6 +335,8 @@ class LogReplayer {
   std::list<int> stall_flusher;
 
   bool recover_flag = false;
+
+  std::list<uint64_t> replayed;
 
 
 
@@ -454,65 +448,136 @@ class LogReplayer {
       //   }
       //   else if(!next_queue.empty()) break;
       // }
-      
-      auto rt = next_queue.top();
-      uint64_t ts = rt.first, next_ts, recent_ts;
 
-      for (auto it = stall_flusher.begin(); it != stall_flusher.end();) {
-        recent_ts = log_flushers_ptr[*it]->get_recent_ts(last_replay_ts[*it], ts);
-        if (recent_ts > last_replay_ts[*it]) {
-          next_ts = get_next_log_ts(*it);
-          next_queue.push({next_ts,(*it)<<1});
-          ts = std::min(next_ts, ts);
-          stall_flusher.erase(it++);
-        }
-        else if (recent_ts < ts && recent_ts > last_replay_ts[*it]) {
-          next_ts = recent_ts;
-          next_queue.push({next_ts,(*it)<<1});
-          ts = next_ts;
-          stall_flusher.erase(it++);
-        }
-        else ++it;
-      }
+      int flusher_id;
+      uint64_t last_ready_ts, min_ts = UINT64_MAX, ts;
+      // bool have_ready = false;
+      // std::vector<bool> is_ready(flusher_count, false);
 
-      rt = next_queue.top();
-      next_queue.pop();
-      // if (rt.first == UINT64_MAX) {
-      //   // log end
-      //   // return -1;
+      // int i = 0;
+      // while (i < flusher_count) {
+      //   if (!is_ready[i]) {
+      //     last_ready_ts = log_flushers_ptr[i]->get_last_ready_ts();
+      //     if (last_ready_ts > last_replay_ts[i]) {
+      //       have_ready = true;
+      //       is_ready[i] = true;
+      //       i = 0;
+      //     }
+      //     else if (i >= flusher_count - 1) {
+      //       i = 0;
+      //     }
+      //     else {
+      //       i ++;
+      //     }
+      //   }
+      //   else i ++;
       // }
-      // else {
-        ts = rt.first, next_ts;
-        int flusher_id = rt.second >> 1; 
-        int not_persist = rt.second & 1;
-        // wait until persist
-        while(not_persist) {
-          if (log_flushers_ptr[flusher_id]->last_persist_ts >= ts) not_persist = false;
-        }
-        // if next ts ready
-        if (log_flushers_ptr[flusher_id]->last_persist_ts > ts) {
-          next_ts = get_next_log_ts(flusher_id);
-          next_queue.push({next_ts, flusher_id<<1});
-        }
-        // not ready but in group, or on group flusher
-        // TODO: need check again?
-        // else if ((next_ts = log_flushers_ptr[flusher_id]->oldest_no_persist_ts.load()) > ts) {
-        //   next_queue.push({next_ts, (flusher_id<<1)|1});
-        // }
-        // // not ready not in group no end
-        // else if (!log_flushers_ptr[flusher_id]->log_end_signal.load()) {
-        //   stall_flusher.push_back(flusher_id);
-        // }
-        // // stoped
-        // else {
-        //   next_queue.push({UINT64_MAX,flusher_id<<1});
-        // }
-        else {
-          stall_flusher.push_back(flusher_id);
-        }
 
-        ASSERT(ts > last_get_ts);
-        last_get_ts = ts;
+      // for (int i = 0; i < flusher_count; i ++) {
+      //   if (log_flushers_ptr[i]->log_end_signal) continue;
+      //   while ((last_ready_ts = log_flushers_ptr[i]->get_last_ready_ts()) < last_replay_ts[i]);
+      // }
+      // for (int i = 0; i < flusher_count;) {
+      //   if (is_ready[i]) {
+      //     i ++;
+      //     continue;
+      //   }
+      //   last_ready_ts = log_flushers_ptr[i]->get_last_ready_ts();
+      //   if (last_ready_ts > last_replay_ts[i]) {
+      //     have_ready = true;
+      //     is_ready[i] = true;
+      //     i = 0;
+      //     continue;
+      //   }
+      //   if (i == flusher_count - 1 && !have_ready) {
+      //     i = 0;
+      //     continue;
+      //   }
+
+      //   i ++;
+      // }
+
+      for (int i = 0; i < flusher_count; i ++) {
+        while((ts=log_flushers_ptr[i]->last_persist_ts) <= last_replay_ts[i]) {
+          if (log_flushers_ptr[i]->log_end_signal) break;
+        }
+        if (ts == last_replay_ts[i]) continue;
+        else if ((ts = get_log_ts(i)) < min_ts) {
+          min_ts = ts;
+          flusher_id = i;
+        }
+      }
+      if (min_ts == UINT64_MAX) return -1;
+      // printf("ts:%lu\t\tflusher:%d\n", min_ts, flusher_id);
+
+      // std::pair<uint64_t, int> rt;
+      // uint64_t ts, next_ts, recent_ts;
+
+      // if (next_queue.empty()) ts = UINT64_MAX;
+      // else ts = next_queue.top().first;
+
+      // for (auto it = stall_flusher.begin(); it != stall_flusher.end();) {
+      //   recent_ts = log_flushers_ptr[*it]->get_recent_ts(last_replay_ts[*it], ts);
+      //   if (recent_ts != UINT64_MAX) {
+      //     next_ts = get_log_ts(*it);
+      //     next_queue.push({next_ts,(*it)<<1});
+      //     ts = std::min(next_ts, ts);
+      //     stall_flusher.erase(it++);
+      //   }
+      //   // else if (recent_ts < ts && recent_ts > last_replay_ts[*it]) {
+      //   //   next_ts = recent_ts;
+      //   //   next_queue.push({next_ts,(*it)<<1});
+      //   //   ts = next_ts;
+      //   //   stall_flusher.erase(it++);
+      //   // }
+      //   else ++it;
+
+      //   if (it == stall_flusher.end() && next_queue.empty()) {
+      //     it = stall_flusher.begin();
+      //   }
+      // }
+
+      // rt = next_queue.top();
+      // next_queue.pop();
+      // // if (rt.first == UINT64_MAX) {
+      // //   // log end
+      // //   // return -1;
+      // // }
+      // // else {
+      //   ts = rt.first, next_ts;
+      //   int flusher_id = rt.second >> 1; 
+      //   int not_persist = rt.second & 1;
+      //   // wait until persist
+      //   while(not_persist) {
+      //     if (log_flushers_ptr[flusher_id]->last_persist_ts >= ts) not_persist = false;
+      //   }
+      //   // if next ts ready
+      //   if (log_flushers_ptr[flusher_id]->last_persist_ts > ts) {
+      //     next_ts = get_next_log_ts(flusher_id);
+      //     next_queue.push({next_ts, flusher_id<<1});
+      //   }
+      //   // not ready but in group, or on group flusher
+      //   // TODO: need check again?
+      //   // else if ((next_ts = log_flushers_ptr[flusher_id]->oldest_no_persist_ts.load()) > ts) {
+      //   //   next_queue.push({next_ts, (flusher_id<<1)|1});
+      //   // }
+      //   // // not ready not in group no end
+      //   // else if (!log_flushers_ptr[flusher_id]->log_end_signal.load()) {
+      //   //   stall_flusher.push_back(flusher_id);
+      //   // }
+      //   // // stoped
+      //   // else {
+      //   //   next_queue.push({UINT64_MAX,flusher_id<<1});
+      //   // }
+      //   else {
+      //     stall_flusher.push_back(flusher_id);
+      //   }
+
+        ASSERT(min_ts > last_get_ts);
+        #ifdef PDEBUG
+        replayed.push_back(min_ts);
+        #endif
+        last_get_ts = min_ts;
         return flusher_id;
       // }
     }
@@ -521,7 +586,14 @@ class LogReplayer {
   virtual void do_replay_thread() {
     while (true) {
       int flusher_id = get_next_flusher_id();
-      if (flusher_id == -1) break;
+      if (flusher_id == -1) {
+        uint64_t count = 0;
+        for (int i = 0; i < flusher_count; i ++) {
+          count += log_flushers_ptr[i]->persist_ts.size();
+        }
+        ASSERT(count == replayed.size());
+        break;
+      }
       else {
         do_replay(flusher_id);
       }
@@ -657,13 +729,17 @@ void join_log_threads() {
 }
 
 void pstm_plog_commit() {
-  if (FLUSHER_TYPE == 0 && thread_vlog_entry->log_count > 0)
+  if (FLUSHER_TYPE == 0 && thread_vlog_entry->log_count > 0) {
     log_flushers[thread_id]->do_flush_vlog(thread_vlog_entry);
+    #ifdef PDEBUG
+    log_flushers[thread_id]->persist_ts.push_back(thread_vlog_entry->ts);
+    #endif
+  }
 }
 
-void pstm_plog_init_thread() {
-  if (FLUSHER_TYPE == 0) log_flushers[thread_id]->oldest_no_persist_vlog = thread_vlog_entry;
-}
+// void pstm_plog_init_thread() {
+//   if (FLUSHER_TYPE == 0) log_flushers[thread_id]->oldest_no_persist_vlog = thread_vlog_entry;
+// }
 
 void pstm_plog_exit_thread() {
   if (FLUSHER_TYPE == 0) log_flushers[thread_id]->log_end_signal.store(true);

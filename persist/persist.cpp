@@ -33,7 +33,7 @@ void pstm_before_tm_start(int numThread) {
 
 void pstm_after_thread_start(int threadID){
   pstm_vlog_init_thread(threadID);
-  void pstm_plog_init_thread();
+  // pstm_plog_init_thread();
 }
 
 void pstm_after_store(uint64_t *addr, uint64_t value, uint64_t index){
@@ -55,11 +55,11 @@ void pstm_before_tx_start() {
 }
 
 void pstm_before_gen_ts() {
-
+  pstm_vlog_before_gen_ts();
 }
 
 void pstm_after_gen_ts(uint64_t ts) {
-
+  pstm_vlog_after_gen_ts(ts);
 }
 
 void pstm_before_tx_commit(uint64_t ts) {
@@ -98,6 +98,7 @@ void pstm_before_tx_abort() {
   // ts3 = 0;
   // ts4 = 0;
   // pstm_vlog_clear();
+  pstm_vlog_abort();
 }
 
 void pstm_before_thread_exit(){

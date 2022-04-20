@@ -66,22 +66,25 @@ void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
   thread_vlog_entry->log_count ++;
 }
 
-void pstm_plog_before_gen_ts() {
-  if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0)
-    ready_vlog_collecters[flusher_id]->vlog_collect_lock.lock();
+void pstm_vlog_before_gen_ts() {
+  // if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0)
+  ready_vlog_collecters[flusher_id]->vlog_collect_lock.lock();
 }
 
-void pstm_plog_after_gen_ts(uint64_t ts) {
+void pstm_vlog_after_gen_ts(uint64_t ts) {
   thread_vlog_entry->ts = ts;
   thread_vlog_entry->state.store(VLOG_PRE_COMMIT);
   if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0) {
     ready_vlog_collecters[flusher_id]->put(thread_vlog_entry);
-    ready_vlog_collecters[flusher_id]->vlog_collect_lock.unlock();
+    // ready_vlog_collecters[flusher_id]->vlog_collect_lock.unlock();
   }
+  ready_vlog_collecters[flusher_id]->last_ready_ts = ts;
+  ready_vlog_collecters[flusher_id]->vlog_collect_lock.unlock();
 }
 
 void pstm_vlog_abort() {
-  thread_vlog_entry->state.store(VLOG_ABORT);
+  thread_vlog_entry->log_count = 0;
+  thread_vlog_entry->state.store(VLOG_INVAILD);
 } 
 
 void pstm_vlog_commit(uint64_t ts) {

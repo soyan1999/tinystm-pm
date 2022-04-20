@@ -3,7 +3,8 @@
 
 #include <folly/MPMCQueue.h>
 #include <folly/ProducerConsumerQueue.h>
-#include <folly/SpinLock.h>
+// #include <folly/SpinLock.h>
+#include <mutex>
 #include <chrono>
 #include <atomic>
 #include "plog.h"
@@ -44,7 +45,8 @@ public:
   ReadyVlogCollecter(int capacity):vlog_queue(capacity) {}
 
   // insert lock
-  folly::SpinLock vlog_collect_lock;
+  std::mutex vlog_collect_lock;
+  uint64_t last_ready_ts;
 
   void put(pstm_vlog_t *vlog) {
     vlog_queue.blockingWrite(vlog);
@@ -103,7 +105,10 @@ void pstm_vlog_init_thread(int threadID);
 void pstm_vlog_exit_thread();
 void pstm_vlog_begin();
 void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index);
+void pstm_vlog_before_gen_ts();
+void pstm_vlog_after_gen_ts(uint64_t ts);
 void pstm_vlog_commit(uint64_t ts);
+void pstm_vlog_abort();
 void pstm_vlog_free();
 
 // #ifdef __cplusplus
