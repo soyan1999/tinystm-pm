@@ -97,6 +97,9 @@ extern ReadyVlogCollecter **ready_vlog_collecters;
 extern __thread pstm_vlog_t *thread_vlog_entry;
 extern __thread int thread_id;
 extern __thread int flusher_id;
+#ifdef PDEBUG
+extern std::atomic<uint64_t> commit_count;
+#endif
 extern int thread_count;
 
 

@@ -6,6 +6,9 @@ FreeVlogCollecter **free_vlog_collecters;
 ReadyVlogCollecter **ready_vlog_collecters;
 __thread int thread_id;
 __thread int flusher_id;
+#ifdef PDEBUG
+std::atomic<uint64_t> commit_count = 0;
+#endif
 int thread_count;
 
 void pstm_vlog_init(int thread_num) {
@@ -43,14 +46,14 @@ void pstm_vlog_exit_thread() {
 }
 
 void pstm_vlog_begin() {
-  if (FLUSHER_TYPE != 0 && thread_vlog_entry != NULL) {
+  if (FLUSHER_TYPE != 0 && thread_vlog_entry == NULL) {
     thread_vlog_entry = free_vlog_collecters[thread_id]->get();
   }
   thread_vlog_entry->log_count = 0;
   thread_vlog_entry->state.store(VLOG_INVAILD);
 }
 
-// TODO: modify in log entry
+// TODO: modify in log entry // done
 void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
   uint64_t log_count = thread_vlog_entry->log_count;
 
@@ -61,9 +64,11 @@ void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
     ASSERT(thread_vlog_entry->buffer[index * 2] == (uint64_t)addr - (uint64_t)pstm_dram_ptr);
     thread_vlog_entry->buffer[index * 2 + 1] = value;
   }
-  thread_vlog_entry->buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
-  thread_vlog_entry->buffer[log_count * 2 + 1] = value;
-  thread_vlog_entry->log_count ++;
+  else {
+    thread_vlog_entry->buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
+    thread_vlog_entry->buffer[log_count * 2 + 1] = value;
+    thread_vlog_entry->log_count ++;
+  }
 }
 
 void pstm_vlog_before_gen_ts() {
@@ -83,13 +88,26 @@ void pstm_vlog_after_gen_ts(uint64_t ts) {
 }
 
 void pstm_vlog_abort() {
-  thread_vlog_entry->log_count = 0;
-  thread_vlog_entry->state.store(VLOG_INVAILD);
+  if (FLUSHER_TYPE == 0 || thread_vlog_entry->state != VLOG_PRE_COMMIT || thread_vlog_entry->log_count == 0) {
+    thread_vlog_entry->log_count = 0;
+    thread_vlog_entry->state.store(VLOG_INVAILD);
+  }
+  else {
+    thread_vlog_entry->log_count = 0;
+    thread_vlog_entry->state.store(VLOG_ABORT);
+    thread_vlog_entry = free_vlog_collecters[thread_id]->get();
+    thread_vlog_entry->log_count = 0;
+    thread_vlog_entry->state.store(VLOG_INVAILD);
+  }
+
 } 
 
 void pstm_vlog_commit(uint64_t ts) {
   thread_vlog_entry->state.store(VLOG_COMMITTED);
-  if (FLUSHER_TYPE != 0) {
+  #ifdef PDEBUG
+  commit_count += thread_vlog_entry->log_count;
+  #endif
+  if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0) {
     // ready_vlog_collecters[flusher_id]->put(thread_vlog_entry);
     thread_vlog_entry = NULL;
   }

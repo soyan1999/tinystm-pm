@@ -3,6 +3,6 @@ CFLAGS   += -w -DDEF_CPU_FREQ=$(DEF_CPU_FREQ) -I . \
   -I ../../deps/threading/include -I ../../../include -I ../../../persist/include
 
 CPPFLAGS := $(CFLAGS)
-LIBS     += -linput_handler -lthreading -lrt -lm -lstm -lpersist
+LIBS     += -linput_handler -lthreading -lrt -lm -lstm -lpersist -lfolly -lglog -lfmt -lgflags -ldl
 LDFLAGS  += $(CFLAGS) -L ../../deps/threading  \
   -L ../../deps/input_handler -L ../../../lib -L ../../../persist
