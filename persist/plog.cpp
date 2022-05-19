@@ -5,6 +5,7 @@
 #include <bits/stdc++.h>
 // #include <folly/SpinLock.h>
 #include <mutex>
+#include <emmintrin.h>
 
 
 // __thread uint64_t last_persist_ts = 0;
@@ -86,7 +87,7 @@ class LogFlusher {
   inline void* gen_plog_ptr(uint64_t offset) {
     // return (void *)((offset / PAGE_SIZE) * flusher_count * PAGE_SIZE + offset % PAGE_SIZE + (uint64_t)log_start_ptr);
     if (flusher_count == 1) return ptr_add(log_start_ptr, offset);
-    return (void *)((((offset>>12)&(log_page_num-1)) * (flusher_count << 12)) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
+    return (void *)((((offset>>12)%log_page_num) * (flusher_count << 12)) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
   }
 
   inline void* ptr_add(void* ptr, uint64_t offset) {
@@ -104,6 +105,7 @@ class LogFlusher {
     // block until log_space avaliable
     while (flush_offset - replay_offset.load() > log_area_size - size);
 
+    #ifndef USE_NTSTORE
     if (size != 0) {
       uint64_t step_size = PAGE_SIZE - (flush_offset & (PAGE_SIZE - 1));
 
@@ -120,12 +122,41 @@ class LogFlusher {
         flush_offset += size;
       }
     }
+    #else
+    if (size != 0) {
+      uint64_t step_size = PAGE_SIZE - (flush_offset & (PAGE_SIZE - 1));
+
+      while (size >= step_size) {
+        __m128i *dst = (__m128i *)gen_plog_ptr(flush_offset), *src = (__m128i *)entry;
+        for (int i = 0; i < step_size; i += 128) {
+          _mm_stream_si128(dst, *src);
+          dst++;
+          src++;
+        }
+        entry = ptr_add(entry, step_size);
+        flush_offset += step_size;
+        
+        size -= step_size;
+        step_size = PAGE_SIZE;
+      }
+      if (size > 0) {
+        __m128i *dst = (__m128i *)gen_plog_ptr(flush_offset), *src = (__m128i *)entry;
+        for (int i = 0; i < size; i += 128) {
+          _mm_stream_si128(dst, *src);
+          dst++;
+          src++;
+        }
+        flush_offset += size;
+      }
+    }
+    #endif
   }
 
   void flush_entry() {
     uint64_t flush_left = flush_offset - last_persist_offset;
     uint64_t flush_off = last_persist_offset;
     if (flush_left != 0) {
+      #ifndef USE_NTSTORE
       uint64_t step_size = PAGE_SIZE - (last_persist_offset & (PAGE_SIZE - 1));
 
       while (flush_left >= step_size) {
@@ -140,6 +171,7 @@ class LogFlusher {
         void *flush_ptr = gen_plog_ptr(flush_off);
         FLUSH_BLOCK(flush_ptr, ptr_add(flush_ptr, flush_left));
       }
+      #endif
       FENCE_PREV_FLUSHES();
       log_root_ptr->log_end_off = flush_offset;
       FLUSH_CL(&log_root_ptr->log_end_off);
@@ -180,12 +212,20 @@ class LogFlusher {
     if (!wait_vlog_committed(vlog)) return;
     write_entry(&(vlog->ts), 2*sizeof(uint64_t));
     write_entry(vlog->buffer,vlog->log_count*2*sizeof(uint64_t));
-    flush_entry();
+    tx_count ++;
+    if (tx_count >= GROUP_SIZE) {
+      flush_entry();
+      tx_count = 0;
+    }
 
     vlog->state.store(VLOG_PERSISTED);
-    ready_vlog_collecter->vlog_collect_lock.lock();
+    // #ifdef ORDER_COLLECT
+    // ready_vlog_collecter->vlog_collect_lock.lock();
+    // #endif
     last_persist_ts = vlog->ts;
-    ready_vlog_collecter->vlog_collect_lock.unlock();
+    // #ifdef ORDER_COLLECT
+    // ready_vlog_collecter->vlog_collect_lock.unlock();
+    // #endif
   }
 
   // get last_ready ts
@@ -218,12 +258,14 @@ class CombinedLogFlusher: public LogFlusher {
   }
 
   void do_flush_cb_table(std::unordered_map<uint64_t,uint64_t> &cb_table, uint64_t last_collect_ts) {
+    #ifdef ENABLE_FLUSH
     uint64_t log_head[2] = {last_collect_ts, cb_table.size()};
     write_entry(log_head, 2*sizeof(uint64_t));
     for (auto it = cb_table.begin(); it != cb_table.end(); ++it) {
       write_entry(&(*it), 2*sizeof(uint64_t));
     }
     flush_entry();
+    #endif
 
     cb_table.clear();
     // tx_count = 0;
@@ -240,11 +282,15 @@ class CombinedLogFlusher: public LogFlusher {
     if (!wait_vlog_committed(vlog)) return false;
 
     uint64_t *log_ptr = vlog->buffer;
+    #ifdef ENABLE_COMBINE
     for (uint64_t i = 0; i < vlog->log_count; i ++) {
       cb_table[*log_ptr] = *(log_ptr + 1);
       log_ptr += 2;
     }
+    #endif
+    #ifdef ORDER_COLLECT
     ASSERT(last_collect_ts < vlog->ts);
+    #endif
     last_collect_ts = vlog->ts;
     tx_count ++;
 
@@ -598,7 +644,9 @@ class LogReplayer {
       //     stall_flusher.push_back(flusher_id);
       //   }
 
+        #ifdef ORDER_COLLECT
         ASSERT(min_ts > last_get_ts);
+        #endif
         #ifdef PDEBUG
         replayed.push_back(min_ts);
         #endif
@@ -744,7 +792,9 @@ void create_log_threads() {
       log_thread_pool.push_back(std::thread(&LogFlusher::do_flush_thread, log_flushers[i]));
     }
   }
+  #ifdef ENABLE_REPLAY
   log_thread_pool.push_back(std::thread(&LogReplayer::do_replay_thread, log_replayer));
+  #endif
 }
 
 void join_log_threads() {
@@ -755,7 +805,9 @@ void join_log_threads() {
 
 void pstm_plog_commit() {
   if (FLUSHER_TYPE == 0 && thread_vlog_entry->log_count > 0) {
+    #ifdef ENABLE_FLUSH
     log_flushers[thread_id]->do_flush_vlog(thread_vlog_entry);
+    #endif
     #ifdef PDEBUG
     log_flushers[thread_id]->persist_ts.push_back(thread_vlog_entry->ts);
     #endif

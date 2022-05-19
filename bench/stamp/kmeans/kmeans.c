@@ -275,8 +275,8 @@ MAIN(argc, argv)
     }
     // free(line);
 
-    TM_STARTUP(nthreads);
     P_MEMORY_STARTUP(nthreads);
+    TM_STARTUP(nthreads);
     thread_startup(nthreads);
 
     /*

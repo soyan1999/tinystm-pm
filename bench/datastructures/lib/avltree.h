@@ -1,11 +1,31 @@
 /* =============================================================================
  *
- * random.h
+ * avltree.h
+ * -- AVL balanced tree library
  *
  * =============================================================================
  *
- * Copyright (C) Stanford University, 2006.  All Rights Reserved.
- * Author: Chi Cao Minh
+ * AVL balanced tree library
+ *
+ * > Created (Julienne Walker): June 17, 2003
+ * > Modified (Julienne Walker): September 24, 2005
+ *
+ * This code is in the public domain. Anyone may
+ * use it or change it in any way that they see
+ * fit. The author assumes no responsibility for
+ * damages incurred through use of the original
+ * code or any variations thereof.
+ *
+ * It is requested, but not required, that due
+ * credit is given to the original author and
+ * anyone who has modified the code through
+ * a header comment, such as this one.
+ *
+ * =============================================================================
+ *
+ * Modified May 5, 2006 by Chi Cao Minh
+ *
+ * - Changed to not need functions to duplicate and release the data pointer
  *
  * =============================================================================
  *
@@ -69,96 +89,70 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
 
-
-#include "mt19937ar.h"
+#ifndef JSW_AVLTREE_H
+#define JSW_AVLTREE_H
 
 
 #ifdef __cplusplus
+#include <cstddef>
+
+using std::size_t;
+
 extern "C" {
+#else
+#include <stddef.h>
 #endif
 
+#include "tm.h"
 
-#define RANDOM_DEFAULT_SEED (0)
+/* Opaque types */
+typedef struct jsw_avltree jsw_avltree_t;
+typedef struct jsw_avltrav jsw_avltrav_t;
 
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+/* User-defined item handling */
+typedef long   (*cmp_f) ( const void *p1, const void *p2 );
+#if USE_DUP_AND_REL
+typedef void *(*dup_f) ( void *p );
+typedef void  (*rel_f) ( void *p );
+#endif
 
+/* AVL tree functions */
+#if USE_DUP_AND_REL
+jsw_avltree_t *jsw_avlnew ( cmp_f cmp, dup_f dup, rel_f rel );
+jsw_avltree_t *Pjsw_avlnew ( cmp_f cmp, dup_f dup, rel_f rel );
+#else
+jsw_avltree_t *jsw_avlnew ( cmp_f cmp );
+jsw_avltree_t *Pjsw_avlnew ( cmp_f cmp );
+#endif
+void           jsw_avldelete ( jsw_avltree_t *tree );
+void           Pjsw_avldelete ( jsw_avltree_t *tree );
+void          *jsw_avlfind ( jsw_avltree_t *tree, void *data );
+long           jsw_avlinsert ( jsw_avltree_t *tree, void *data );
+long           Pjsw_avlinsert ( jsw_avltree_t *tree, void *data );
+long           jsw_avlerase ( jsw_avltree_t *tree, void *data );
+long           Pjsw_avlerase ( jsw_avltree_t *tree, void *data );
+size_t         jsw_avlsize ( jsw_avltree_t *tree );
 
-/* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-random_alloc ();
-
-
-/* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
-
-
-/* =============================================================================
- * random_free
- * =============================================================================
- */
-void
-random_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * Prandom_free
- * =============================================================================
- */
-void
-Prandom_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * random_seed
- * =============================================================================
- */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
-
-
-/* =============================================================================
- * random_generate
- * =============================================================================
- */
-unsigned long
-random_generate (random_t* randomPtr);
-
-
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
-
+/* Traversal functions */
+jsw_avltrav_t *jsw_avltnew ( void );
+void           jsw_avltdelete ( jsw_avltrav_t *trav );
+void          *jsw_avltfirst ( jsw_avltrav_t *trav, jsw_avltree_t *tree );
+void          *jsw_avltlast ( jsw_avltrav_t *trav, jsw_avltree_t *tree );
+void          *jsw_avltnext ( jsw_avltrav_t *trav );
+void          *jsw_avltprev ( jsw_avltrav_t *trav );
 
 #ifdef __cplusplus
 }
 #endif
 
+#endif
 
-#endif /* RANDOM_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of avltree.h
  *
  * =============================================================================
  */

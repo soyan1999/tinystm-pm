@@ -9,9 +9,18 @@
 #define IS_END_FLAG(flag)     (flag&0x2)
 
 #define INC_LOG_PTR(ptr)      (ptr=(ptr+1)&(PSTM_LOG_SIZE-1))
-#define FLUSHER_TYPE          1
+#define FLUSHER_TYPE          0
 #define TOTAL_FLUSHER_NUM     1
 #define MAX_REPLAY_SIZE       10000
+#define MONOTONIC             0
+
+// #define ENABLE_REPLAY
+#define ENABLE_FLUSH
+#define ENABLE_VLOG
+#define ENABLE_COMBINE
+#define ORDER_COLLECT
+// #define USE_NTSTORE
+#define GROUP_SIZE UINT64_MAX //UINT64_MAX
 
 // #ifdef __cplusplus
 // extern "C" {

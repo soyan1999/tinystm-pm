@@ -1,6 +1,7 @@
 /* =============================================================================
  *
- * random.h
+ * set.h
+ * -- Utility defines to use various data structures as set
  *
  * =============================================================================
  *
@@ -69,96 +70,43 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef SET_H
+#define SET_H 1
 
 
-#include "mt19937ar.h"
+#include <stdlib.h>
+#include "types.h"
 
 
-#ifdef __cplusplus
-extern "C" {
+#if defined(SET_USE_RBTREE)
+
+#  include "rbtree.h"
+
+#  define SET_T                       rbtree_t
+#  define SET_ALLOC(hash, cmp)        rbtree_alloc(cmp)
+#  define SET_FREE(map)               rbtree_free(map)
+
+#  define SET_CONTAINS(map, key)      rbtree_contains(map, (void*)(key))
+#  define SET_INSERT(map, key)        rbtree_insert(map, (void*)(key), NULL)
+#  define SET_REMOVE(map, key)        rbtree_delete(map, (void*)(key))
+
+#  define TMSET_CONTAINS(map, key)    TMRBTREE_CONTAINS(map, (void*)(key))
+#  define TMSET_INSERT(map, key)      TMRBTREE_INSERT(map, (void*)(key), NULL)
+#  define TMSET_REMOVE(map, key)      TMRBTREE_DELETE(map, (void*)(key))
+
+#else
+
+#  error "SET type is not specified"
+
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
-
-
-/* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-random_alloc ();
-
-
-/* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
-
-
-/* =============================================================================
- * random_free
- * =============================================================================
- */
-void
-random_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * Prandom_free
- * =============================================================================
- */
-void
-Prandom_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * random_seed
- * =============================================================================
- */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
-
-
-/* =============================================================================
- * random_generate
- * =============================================================================
- */
-unsigned long
-random_generate (random_t* randomPtr);
-
-
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
-
-
-#ifdef __cplusplus
-}
-#endif
-
-
-#endif /* RANDOM_H */
+#endif /* SET_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of set.h
  *
  * =============================================================================
  */

@@ -1,6 +1,7 @@
 /* =============================================================================
  *
- * random.h
+ * utility.h
+ * -- Collection of utility macros
  *
  * =============================================================================
  *
@@ -69,96 +70,45 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef UTILITY_H
+#define UTILITY_H
 
 
-#include "mt19937ar.h"
-
-
-#ifdef __cplusplus
-extern "C" {
+#ifdef SIMULATOR
+#  undef MAX
+#  undef MIN
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
+#define MAX(a,b) \
+    ({ \
+        typeof(a) _a = (a); \
+        typeof(b) _b = (b); \
+        (_a > _b) ? (_a) : (_b); \
+    })
 
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+#define MIN(a,b) \
+    ({ \
+        typeof(a) _a = (a); \
+        typeof(b) _b = (b); \
+        (_a < _b) ? (_a) : (_b); \
+    })
 
-
-/* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-random_alloc ();
-
-
-/* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
+#define DIVIDE_AND_ROUND_UP(a,b) \
+    ({ \
+        typeof(a) _a = (a); \
+        typeof(b) _b = (b); \
+        (_a / _b) + (((_a % _b) > 0) ? (1) : (0)); \
+    })
 
 
-/* =============================================================================
- * random_free
- * =============================================================================
- */
-void
-random_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * Prandom_free
- * =============================================================================
- */
-void
-Prandom_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * random_seed
- * =============================================================================
- */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
-
-
-/* =============================================================================
- * random_generate
- * =============================================================================
- */
-unsigned long
-random_generate (random_t* randomPtr);
-
-
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
-
-
-#ifdef __cplusplus
-}
-#endif
-
-
-#endif /* RANDOM_H */
+#endif /* UTILITY_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of utility.h
  *
  * =============================================================================
  */
+

@@ -11,48 +11,48 @@
  *
  * For the license of bayes/sort.h and bayes/sort.c, please see the header
  * of the files.
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of kmeans, please see kmeans/LICENSE.kmeans
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of ssca2, please see ssca2/COPYRIGHT
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of lib/mt19937ar.c and lib/mt19937ar.h, please see the
  * header of the files.
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * For the license of lib/rbtree.h and lib/rbtree.c, please see
  * lib/LEGALNOTICE.rbtree and lib/LICENSE.rbtree
- *
+ * 
  * ------------------------------------------------------------------------
- *
+ * 
  * Unless otherwise noted, the following license applies to STAMP files:
- *
+ * 
  * Copyright (c) 2007, Stanford University
  * All rights reserved.
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- *
+ * 
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
- *
+ * 
  *     * Redistributions in binary form must reproduce the above copyright
  *       notice, this list of conditions and the following disclaimer in
  *       the documentation and/or other materials provided with the
  *       distribution.
- *
+ * 
  *     * Neither the name of Stanford University nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY STANFORD UNIVERSITY ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -69,12 +69,7 @@
  */
 
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include <stdlib.h>
-#include <sched.h>
 #include "mt19937ar.h"
 #include "random.h"
 #include "tm.h"
@@ -88,7 +83,7 @@
 random_t*
 random_alloc (void)
 {
-    random_t* randomPtr = (random_t*)malloc(sizeof(random_t));
+    random_t* randomPtr = (random_t*)S_MALLOC(sizeof(random_t));
     if (randomPtr != NULL) {
         randomPtr->mti = N;
         init_genrand(randomPtr->mt, &(randomPtr->mti), RANDOM_DEFAULT_SEED);
@@ -97,10 +92,6 @@ random_alloc (void)
     return randomPtr;
 }
 
-void init_random(random_t* randomPtr) {
-    randomPtr->mti = N;
-    init_genrand(randomPtr->mt, &(randomPtr->mti), RANDOM_DEFAULT_SEED);
-}
 
 /* =============================================================================
  * Prandom_alloc
@@ -127,7 +118,7 @@ Prandom_alloc (void)
 void
 random_free (random_t* randomPtr)
 {
-    free(randomPtr);
+    S_FREE(randomPtr);
 }
 
 
@@ -163,24 +154,64 @@ random_generate (random_t* randomPtr)
     return genrand_int32(randomPtr->mt, &(randomPtr->mti));
 }
 
-__inline__ unsigned long long tick()
+
+/* =============================================================================
+ * TEST_RANDOM
+ * =============================================================================
+ */
+#ifdef TEST_RANDOM
+
+
+#include <stdio.h>
+#include <assert.h>
+#include "mt19937ar.c"
+
+
+#define NUM_ITERATIONS 10
+
+
+int
+main ()
 {
-  #if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
+    random_t* random1Ptr;
+    random_t* random2Ptr;
+    random_t* random3Ptr;
+    long i;
+
+    puts("Starting...");
+
+    random1Ptr = random_alloc();
+    random2Ptr = random_alloc();
+    random3Ptr = random_alloc();
+
+    random_seed(random2Ptr, (RANDOM_DEFAULT_SEED + 1));
+    random_seed(random3Ptr, (RANDOM_DEFAULT_SEED + 1));
+
+    for (i = 0; i < NUM_ITERATIONS; i++) {
+        unsigned long rand1 = random_generate(random1Ptr);
+        unsigned long rand2 = random_generate(random2Ptr);
+        unsigned long rand3 = random_generate(random3Ptr);
+        printf("i = %2li, rand1 = %12lu, rand2 = %12lu, rand2 = %12lu\n",
+                i, rand1, rand2, rand3);
+        assert(rand1 != rand2);
+        assert(rand2 == rand3);
+    }
+
+    random_free(random1Ptr);
+    random_free(random2Ptr);
+
+    puts("Done.");
+
     return 0;
-  #else
-    unsigned hi, lo;
-    __asm__ __volatile__ ("rdtsc" : "=a"(lo), "=d"(hi));
-    return ( (unsigned long long)lo)|( ((unsigned long long)hi)<<32 );
-  #endif
 }
 
-#if defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)
-void bindThread(long threadId) {
-    cpu_set_t my_set;
-    CPU_ZERO(&my_set);
-    int offset = threadId / 10;
-    CPU_SET((threadId % 10)*8+offset, &my_set);
-    sched_setaffinity(0, sizeof(cpu_set_t), &my_set);
-}
-#endif
 
+#endif /* TEST_VECTOR */
+
+
+/* =============================================================================
+ *
+ * End of random.c
+ *
+ * =============================================================================
+ */

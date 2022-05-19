@@ -240,6 +240,7 @@ MAIN(argc, argv)
     printf("Paths routed    = %li\n", numPathRouted);
     stats_benchTime = TIMER_DIFF_SECONDS(startTime, stopTime);
     printf("Elapsed time    = %lf seconds\n", stats_benchTime);
+    printf("Time = %lf\n", stats_benchTime);
 
     /*
      * Check solution and clean up

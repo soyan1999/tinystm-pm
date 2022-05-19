@@ -1,6 +1,7 @@
 /* =============================================================================
  *
- * random.h
+ * memory.h
+ * -- Very simple pseudo thread-local memory allocator
  *
  * =============================================================================
  *
@@ -69,83 +70,49 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef MEMORY_H
+#define MEMORY_H 1
 
-
-#include "mt19937ar.h"
-
+#include <stddef.h>
+#include "types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
+enum {
+    DEFAULT_INIT_BLOCK_CAPACITY = 16,
+    DEFAULT_BLOCK_GROWTH_FACTOR = 2,
+};
 
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+typedef struct memory memory_t;
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * memory_init
+ * -- Returns FALSE on failure
  * =============================================================================
  */
-random_t*
-random_alloc ();
+bool_t
+memory_init (long numThread, size_t initBlockCapacity, long blockGrowthFactor);
 
 
 /* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
-
-
-/* =============================================================================
- * random_free
+ * memory_destroy
  * =============================================================================
  */
 void
-random_free (random_t* randomPtr);
+memory_destroy ();
 
 
 /* =============================================================================
- * Prandom_free
+ * memory_get
+ * -- Reserves memory
  * =============================================================================
  */
-void
-Prandom_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * random_seed
- * =============================================================================
- */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
-
-
-/* =============================================================================
- * random_generate
- * =============================================================================
- */
-unsigned long
-random_generate (random_t* randomPtr);
-
-
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+void*
+memory_get (long threadId, size_t numByte);
 
 
 #ifdef __cplusplus
@@ -153,12 +120,12 @@ random_generate (random_t* randomPtr);
 #endif
 
 
-#endif /* RANDOM_H */
+#endif /* MEMORY_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of memory.h
  *
  * =============================================================================
  */

@@ -1,11 +1,22 @@
 /* =============================================================================
  *
- * random.h
+ * rbtree.h
+ * -- Red-black balanced binary search tree
  *
  * =============================================================================
  *
- * Copyright (C) Stanford University, 2006.  All Rights Reserved.
- * Author: Chi Cao Minh
+ * Copyright (C) Sun Microsystems Inc., 2006.  All Rights Reserved.
+ * Authors: Dave Dice, Nir Shavit, Ori Shalev.
+ *
+ * STM: Transactional Locking for Disjoint Access Parallelism
+ *
+ * Transactional Locking II,
+ * Dave Dice, Ori Shalev, Nir Shavit
+ * DISC 2006, Sept 2006, Stockholm, Sweden.
+ *
+ * =============================================================================
+ *
+ * Modified by Chi Cao Minh
  *
  * =============================================================================
  *
@@ -69,11 +80,12 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef RBTREE_H
+#define RBTREE_H 1
 
 
-#include "mt19937ar.h"
+#include "tm.h"
+#include "types.h"
 
 
 #ifdef __cplusplus
@@ -81,71 +93,145 @@ extern "C" {
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+typedef struct rbtree rbtree_t;
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * rbtree_verify
  * =============================================================================
  */
-random_t*
-random_alloc ();
+long
+rbtree_verify (rbtree_t* s, long verbose);
 
 
 /* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * rbtree_alloc
  * =============================================================================
  */
-random_t*
-Prandom_alloc ();
+rbtree_t*
+rbtree_alloc (long (*compare)(const void*, const void*));
 
 
 /* =============================================================================
- * random_free
+ * TMrbtree_alloc
  * =============================================================================
  */
-void
-random_free (random_t* randomPtr);
+rbtree_t*
+TMrbtree_alloc (TM_ARGDECL  long (*compare)(const void*, const void*));
 
 
 /* =============================================================================
- * Prandom_free
+ * rbtree_free
  * =============================================================================
  */
 void
-Prandom_free (random_t* randomPtr);
+rbtree_free (rbtree_t* r);
 
 
 /* =============================================================================
- * random_seed
+ * TMrbtree_free
  * =============================================================================
  */
 void
-random_seed (random_t* randomPtr, unsigned long seed);
+TMrbtree_free (TM_ARGDECL  rbtree_t* r);
 
 
 /* =============================================================================
- * random_generate
+ * rbtree_insert
+ * -- Returns TRUE on success
  * =============================================================================
  */
-unsigned long
-random_generate (random_t* randomPtr);
+bool_t
+rbtree_insert (rbtree_t* r, void* key, void* val);
 
 
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+/* =============================================================================
+ * TMrbtree_insert
+ * -- Returns TRUE on success
+ * =============================================================================
+ */
+TM_CALLABLE
+bool_t
+TMrbtree_insert (TM_ARGDECL  rbtree_t* r, void* key, void* val);
+
+
+/* =============================================================================
+ * rbtree_delete
+ * =============================================================================
+ */
+bool_t
+rbtree_delete (rbtree_t* r, void* key);
+
+
+/* =============================================================================
+ * TMrbtree_delete
+ * =============================================================================
+ */
+TM_CALLABLE
+bool_t
+TMrbtree_delete (TM_ARGDECL  rbtree_t* r, void* key);
+
+
+/* =============================================================================
+ * rbtree_update
+ * -- Return FALSE if had to insert node first
+ * =============================================================================
+ */
+bool_t
+rbtree_update (rbtree_t* r, void* key, void* val);
+
+
+/* =============================================================================
+ * TMrbtree_update
+ * -- Return FALSE if had to insert node first
+ * =============================================================================
+ */
+TM_CALLABLE
+bool_t
+TMrbtree_update (TM_ARGDECL  rbtree_t* r, void* key, void* val);
+
+
+/* =============================================================================
+ * rbtree_get
+ * =============================================================================
+ */
+void*
+rbtree_get (rbtree_t* r, void* key);
+
+
+/* =============================================================================
+ * TMrbtree_get
+ * =============================================================================
+ */
+TM_CALLABLE
+void*
+TMrbtree_get (TM_ARGDECL  rbtree_t* r, void* key);
+
+
+/* =============================================================================
+ * rbtree_contains
+ * =============================================================================
+ */
+bool_t
+rbtree_contains (rbtree_t* r, void* key);
+
+
+/* =============================================================================
+ * TMrbtree_contains
+ * =============================================================================
+ */
+TM_CALLABLE
+bool_t
+TMrbtree_contains (TM_ARGDECL  rbtree_t* r, void* key);
+
+
+#define TMRBTREE_ALLOC()          TMrbtree_alloc(TM_ARG_ALONE)
+#define TMRBTREE_FREE(r)          TMrbtree_free(TM_ARG  r)
+#define TMRBTREE_INSERT(r, k, v)  TMrbtree_insert(TM_ARG  r, (void*)(k), (void*)(v))
+#define TMRBTREE_DELETE(r, k)     TMrbtree_delete(TM_ARG  r, (void*)(k))
+#define TMRBTREE_UPDATE(r, k, v)  TMrbtree_update(TM_ARG  r, (void*)(k), (void*)(v))
+#define TMRBTREE_GET(r, k)        TMrbtree_get(TM_ARG  r, (void*)(k))
+#define TMRBTREE_CONTAINS(r, k)   TMrbtree_contains(TM_ARG  r, (void*)(k))
 
 
 #ifdef __cplusplus
@@ -153,12 +239,14 @@ random_generate (random_t* randomPtr);
 #endif
 
 
-#endif /* RANDOM_H */
+
+#endif /* RBTREE_H */
+
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of rbtree.h
  *
  * =============================================================================
  */

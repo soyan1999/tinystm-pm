@@ -1,6 +1,6 @@
 /* =============================================================================
  *
- * random.h
+ * vector.h
  *
  * =============================================================================
  *
@@ -69,11 +69,12 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef VECTOR_H
+#define VECTOR_H 1
 
 
-#include "mt19937ar.h"
+#include "tm.h"
+#include "types.h"
 
 
 #ifdef __cplusplus
@@ -81,71 +82,132 @@ extern "C" {
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+typedef struct vector {
+    long size;
+    long capacity;
+    void** elements;
+} vector_t;
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * vector_alloc
+ * -- Returns NULL if failed
  * =============================================================================
  */
-random_t*
-random_alloc ();
+vector_t*
+vector_alloc (long initCapacity);
 
 
 /* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * Pvector_alloc
+ * -- Returns NULL if failed
  * =============================================================================
  */
-random_t*
-Prandom_alloc ();
+vector_t*
+Pvector_alloc (long initCapacity);
 
 
 /* =============================================================================
- * random_free
+ * vector_free
  * =============================================================================
  */
 void
-random_free (random_t* randomPtr);
+vector_free (vector_t* vectorPtr);
 
 
 /* =============================================================================
- * Prandom_free
+ * Pvector_free
  * =============================================================================
  */
 void
-Prandom_free (random_t* randomPtr);
+Pvector_free (vector_t* vectorPtr);
 
 
 /* =============================================================================
- * random_seed
+ * vector_at
+ * -- Returns NULL if failed
+ * =============================================================================
+ */
+void*
+vector_at (vector_t* vectorPtr, long i);
+
+
+/* =============================================================================
+ * vector_pushBack
+ * -- Returns FALSE if fail, else TRUE
+ * =============================================================================
+ */
+bool_t
+vector_pushBack (vector_t* vectorPtr, void* dataPtr);
+
+
+/* =============================================================================
+ * Pvector_pushBack
+ * -- Returns FALSE if fail, else TRUE
+ * =============================================================================
+ */
+bool_t
+Pvector_pushBack (vector_t* vectorPtr, void* dataPtr);
+
+
+/* =============================================================================
+ * vector_popBack
+ * -- Returns NULL if fail, else returns last element
+ * =============================================================================
+ */
+void*
+vector_popBack (vector_t* vectorPtr);
+
+
+/* =============================================================================
+ * vector_getSize
+ * =============================================================================
+ */
+long
+vector_getSize (vector_t* vectorPtr);
+
+
+/* =============================================================================
+ * vector_clear
  * =============================================================================
  */
 void
-random_seed (random_t* randomPtr, unsigned long seed);
+vector_clear (vector_t* vectorPtr);
 
 
 /* =============================================================================
- * random_generate
+ * vector_sort
  * =============================================================================
  */
-unsigned long
-random_generate (random_t* randomPtr);
+void
+vector_sort (vector_t* vectorPtr, int (*compare) (const void*, const void*));
 
 
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+/* =============================================================================
+ * vector_copy
+ * =============================================================================
+ */
+bool_t
+vector_copy (vector_t* dstVectorPtr, vector_t* srcVectorPtr);
+
+
+/* =============================================================================
+ * Pvector_copy
+ * =============================================================================
+ */
+bool_t
+Pvector_copy (vector_t* dstVectorPtr, vector_t* srcVectorPtr);
+
+
+#define PVECTOR_ALLOC(n)            Pvector_alloc(n)
+#define PVECTOR_FREE(v)             Pvector_free(v)
+#define PVECTOR_PUSHBACK(v, data)   Pvector_pushBack(v, data)
+#define PVECTOR_POPBACK(v)          vector_popBack(v)
+#define PVECTOR_AT(v, i)            vector_at(v, i)
+#define PVECTOR_GETSIZE(v)          vector_getSize(v)
+#define PVECTOR_CLEAR(v)            vector_clear(v)
+#define PVECTOR_SORT(v, cmp)        vector_sort(v, cmp)
+#define PVECTOR_COPY(dst, src)      Pvector_copy(dst, src)
 
 
 #ifdef __cplusplus
@@ -153,12 +215,12 @@ random_generate (random_t* randomPtr);
 #endif
 
 
-#endif /* RANDOM_H */
+#endif /* VECTOR_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of vector.h
  *
  * =============================================================================
  */

@@ -37,11 +37,13 @@ void pstm_after_thread_start(int threadID){
 }
 
 void pstm_after_store(uint64_t *addr, uint64_t value, uint64_t index){
+  #ifdef ENABLE_VLOG
   pstm_vlog_collect(addr, value, index);
+  #endif
 }
 
 void pstm_after_read_unlock(uint64_t *addr, uint64_t modify_ts) {
-  if (IS_PMEM(addr)) {
+  if (IS_PMEM(addr) && MONOTONIC == 1) {
     pstm_plog_block_read(modify_ts);
   }
 }
@@ -70,7 +72,9 @@ void pstm_before_tx_commit(uint64_t ts) {
   // if (ts == 1) {
   //   return;
   // }
+  #ifdef ENABLE_VLOG
   pstm_vlog_commit(ts);
+  #endif
   pstm_plog_commit();
   // pstm_vlog_clear();
   // ts4 = rdtscp();
@@ -119,11 +123,11 @@ void pstm_after_tm_exit() {
   pstm_nvm_check();
   pstm_nvm_close();
   pstm_dram_close();
-  printf("nb_tx:\t\t%lu\nnb_flush:\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\nforce_flush:\t%lf\n",
-    tot_pstm_nb_tx,tot_pstm_nb_flush,
-    (double)tot_pstm_time_tx/(double)tot_pstm_nb_tx, 
-    (double)tot_pstm_time_flush_redo_log/(double)tot_pstm_nb_flush, 
-    (double)tot_pstm_time_flush_data/(double)tot_pstm_nb_flush, 
-    (double)tot_pstm_size_flush/(double)tot_pstm_nb_flush,
-    (double)tot_pstm_nb_force_flush/(double)tot_pstm_nb_flush);
+  // printf("nb_tx:\t\t%lu\nnb_flush:\t%lu\ntime_tx:\t%lf\ntime_log:\t%lf\ntime_data:\t%lf\nsize_flush:\t%lf\nforce_flush:\t%lf\n",
+  //   tot_pstm_nb_tx,tot_pstm_nb_flush,
+  //   (double)tot_pstm_time_tx/(double)tot_pstm_nb_tx, 
+  //   (double)tot_pstm_time_flush_redo_log/(double)tot_pstm_nb_flush, 
+  //   (double)tot_pstm_time_flush_data/(double)tot_pstm_nb_flush, 
+  //   (double)tot_pstm_size_flush/(double)tot_pstm_nb_flush,
+  //   (double)tot_pstm_nb_force_flush/(double)tot_pstm_nb_flush);
 }

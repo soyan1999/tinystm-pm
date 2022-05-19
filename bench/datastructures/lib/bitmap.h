@@ -1,6 +1,6 @@
 /* =============================================================================
  *
- * random.h
+ * bitmap.h
  *
  * =============================================================================
  *
@@ -69,11 +69,11 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef BITMAP_H
+#define BITMAP_H 1
 
 
-#include "mt19937ar.h"
+#include "types.h"
 
 
 #ifdef __cplusplus
@@ -81,71 +81,150 @@ extern "C" {
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+typedef struct bitmap {
+    long numBit;
+    long numWord;
+    ulong_t* bits;
+} bitmap_t;
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * bitmap_alloc
+ * -- Returns NULL on failure
  * =============================================================================
  */
-random_t*
-random_alloc ();
+bitmap_t*
+bitmap_alloc (long numBit);
 
 
 /* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * Pbitmap_alloc
+ * -- Returns NULL on failure
  * =============================================================================
  */
-random_t*
-Prandom_alloc ();
+bitmap_t*
+Pbitmap_alloc (long numBit);
 
 
 /* =============================================================================
- * random_free
+ * bitmap_free
  * =============================================================================
  */
 void
-random_free (random_t* randomPtr);
+bitmap_free (bitmap_t* bitmapPtr);
 
 
 /* =============================================================================
- * Prandom_free
+ * Pbitmap_free
  * =============================================================================
  */
 void
-Prandom_free (random_t* randomPtr);
+Pbitmap_free (bitmap_t* bitmapPtr);
 
 
 /* =============================================================================
- * random_seed
+ * bitmap_set
+ * -- Sets ith bit to 1
+ * -- Returns TRUE on success, else FALSE
+ * =============================================================================
+ */
+bool_t
+bitmap_set (bitmap_t* bitmapPtr, long i);
+
+
+/* =============================================================================
+ * bitmap_clear
+ * -- Clears ith bit to 0
+ * -- Returns TRUE on success, else FALSE
+ * =============================================================================
+ */
+bool_t
+bitmap_clear (bitmap_t* bitmapPtr, long i);
+
+
+/* =============================================================================
+ * bitmap_clearAll
+ * -- Clears all bit to 0
  * =============================================================================
  */
 void
-random_seed (random_t* randomPtr, unsigned long seed);
+bitmap_clearAll (bitmap_t* bitmapPtr);
 
 
 /* =============================================================================
- * random_generate
+ * bitmap_isSet
+ * -- Returns TRUE if ith bit is set, else FALSE
  * =============================================================================
  */
-unsigned long
-random_generate (random_t* randomPtr);
+bool_t
+bitmap_isSet (bitmap_t* bitmapPtr, long i);
 
 
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+/* =============================================================================
+ * bitmap_findClear
+ * -- Returns index of first clear bit
+ * -- If start index is negative, will start from beginning
+ * -- If all bits are set, returns -1
+ * =============================================================================
+ */
+long
+bitmap_findClear (bitmap_t* bitmapPtr, long startIndex);
+
+
+/* =============================================================================
+ * bitmap_findSet
+ * -- Returns index of first set bit
+ * -- If all bits are clear, returns -1
+ * =============================================================================
+ */
+long
+bitmap_findSet (bitmap_t* bitmapPtr, long startIndex);
+
+
+/* =============================================================================
+ * bitmap_getNumClear
+ * =============================================================================
+ */
+long
+bitmap_getNumClear (bitmap_t* bitmapPtr);
+
+
+/* =============================================================================
+ * bitmap_getNumSet
+ * =============================================================================
+ */
+long
+bitmap_getNumSet (bitmap_t* bitmapPtr);
+
+
+/* =============================================================================
+ * bitmap_copy
+ * =============================================================================
+ */
+void
+bitmap_copy (bitmap_t* dstPtr, bitmap_t* srcPtr);
+
+
+/* =============================================================================
+ * bitmap_toggleAll
+ * =============================================================================
+ */
+void
+bitmap_toggleAll (bitmap_t* bitmapPtr);
+
+
+#define PBITMAP_ALLOC(n)                Pbitmap_alloc(n)
+#define PBITMAP_FREE(b)                 Pbitmap_free(b)
+#define PBITMAP_SET(b, i)               bitmap_set(b, i)
+#define PBITMAP_CLEAR(b, i)             bitmap_clear(b, i)
+#define PBITMAP_CLEARALL(b)             bitmap_clearAll(b)
+#define PBITMAP_ISSET(b, i)             bitmap_isSet(b, i)
+#define PBITMAP_FINDCLEAR(b, i)         bitmap_findClear(b, i)
+#define PBITMAP_FINDSET(b, i)           bitmap_findSet(b, i)
+#define PBITMAP_GETNUMCLEAR(b)          bitmap_getNumClear(b)
+#define PBITMAP_GETNUMSET(b)            bitmap_getNumSet(b)
+#define PBITMAP_COPY(b)                 bitmap_copy(b)
+#define PBITMAP_TOGGLEALL(b)            bitmap_toggleAll(b)
 
 
 #ifdef __cplusplus
@@ -153,12 +232,12 @@ random_generate (random_t* randomPtr);
 #endif
 
 
-#endif /* RANDOM_H */
+#endif /* BITMAP_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of bitmap.h
  *
  * =============================================================================
  */

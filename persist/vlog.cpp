@@ -60,10 +60,10 @@ void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
   assert(log_count <= VLOG_MAX_NUM);
 
   if(!IS_PMEM(addr)) return;
-  if (index != UINT64_MAX) {
-    ASSERT(thread_vlog_entry->buffer[index * 2] == (uint64_t)addr - (uint64_t)pstm_dram_ptr);
-    thread_vlog_entry->buffer[index * 2 + 1] = value;
-  }
+  // if (index != UINT64_MAX) {
+  //   ASSERT(thread_vlog_entry->buffer[index * 2] == (uint64_t)addr - (uint64_t)pstm_dram_ptr);
+  //   thread_vlog_entry->buffer[index * 2 + 1] = value;
+  // }
   else {
     thread_vlog_entry->buffer[log_count * 2] = (uint64_t)addr - (uint64_t)pstm_dram_ptr;
     thread_vlog_entry->buffer[log_count * 2 + 1] = value;
@@ -73,7 +73,9 @@ void pstm_vlog_collect(void *addr, uint64_t value, uint64_t index) {
 
 void pstm_vlog_before_gen_ts() {
   // if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0)
+  #ifdef ORDER_COLLECT
   ready_vlog_collecters[flusher_id]->vlog_collect_lock.lock();
+  #endif
 }
 
 void pstm_vlog_after_gen_ts(uint64_t ts) {
@@ -84,7 +86,9 @@ void pstm_vlog_after_gen_ts(uint64_t ts) {
     // ready_vlog_collecters[flusher_id]->vlog_collect_lock.unlock();
   }
   ready_vlog_collecters[flusher_id]->last_ready_ts = ts;
+  #ifdef ORDER_COLLECT
   ready_vlog_collecters[flusher_id]->vlog_collect_lock.unlock();
+  #endif
 }
 
 void pstm_vlog_abort() {

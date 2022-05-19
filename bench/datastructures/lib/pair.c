@@ -1,6 +1,6 @@
 /* =============================================================================
  *
- * random.h
+ * pair.c
  *
  * =============================================================================
  *
@@ -69,96 +69,165 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
-
-
-#include "mt19937ar.h"
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+#include <stdlib.h>
+#include "memory.h"
+#include "pair.h"
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
+ * pair_alloc
  * -- Returns NULL if failure
  * =============================================================================
  */
-random_t*
-random_alloc ();
+pair_t*
+pair_alloc (void* firstPtr, void* secondPtr)
+{
+    pair_t* pairPtr;
 
+    pairPtr = (pair_t*)S_MALLOC(sizeof(pair_t));
+    if (pairPtr != NULL) {
+        pairPtr->firstPtr = firstPtr;
+        pairPtr->secondPtr = secondPtr;
+    }
 
-/* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
-
-
-/* =============================================================================
- * random_free
- * =============================================================================
- */
-void
-random_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * Prandom_free
- * =============================================================================
- */
-void
-Prandom_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * random_seed
- * =============================================================================
- */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
-
-
-/* =============================================================================
- * random_generate
- * =============================================================================
- */
-unsigned long
-random_generate (random_t* randomPtr);
-
-
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
-
-
-#ifdef __cplusplus
+    return pairPtr;
 }
-#endif
 
 
-#endif /* RANDOM_H */
+/* =============================================================================
+ * Ppair_alloc
+ * -- Returns NULL if failure
+ * =============================================================================
+ */
+pair_t*
+Ppair_alloc (void* firstPtr, void* secondPtr)
+{
+    pair_t* pairPtr;
+
+    pairPtr = (pair_t*)P_MALLOC(sizeof(pair_t));
+    if (pairPtr != NULL) {
+        pairPtr->firstPtr = firstPtr;
+        pairPtr->secondPtr = secondPtr;
+    }
+
+    return pairPtr;
+}
+
+
+/* =============================================================================
+ * TMpair_alloc
+ * -- Returns NULL if failure
+ * =============================================================================
+ */
+pair_t*
+TMpair_alloc (TM_ARGDECL  void* firstPtr, void* secondPtr)
+{
+    pair_t* pairPtr;
+
+    pairPtr = (pair_t*)TM_MALLOC(sizeof(pair_t));
+    if (pairPtr != NULL) {
+        pairPtr->firstPtr = firstPtr;
+        pairPtr->secondPtr = secondPtr;
+    }
+
+    return pairPtr;
+}
+
+
+/* =============================================================================
+ * pair_free
+ * =============================================================================
+ */
+void
+pair_free (pair_t* pairPtr)
+{
+    S_FREE(pairPtr);
+}
+
+
+/* =============================================================================
+ * Ppair_free
+ * =============================================================================
+ */
+void
+Ppair_free (pair_t* pairPtr)
+{
+    P_FREE(pairPtr);
+}
+
+
+/* =============================================================================
+ * TMpair_free
+ * =============================================================================
+ */
+void
+TMpair_free (TM_ARGDECL  pair_t* pairPtr)
+{
+    TM_FREE(pairPtr);
+}
+
+
+/* =============================================================================
+ * pair_swap
+ * -- Exchange 'firstPtr' and 'secondPtr'
+ * =============================================================================
+ */
+void
+pair_swap (pair_t* pairPtr)
+{
+    void* tmpPtr = pairPtr->firstPtr;
+    pairPtr->firstPtr = pairPtr->secondPtr;
+    pairPtr->secondPtr = tmpPtr;
+}
+
+
+/* =============================================================================
+ * TEST_PAIR
+ * =============================================================================
+ */
+#ifdef TEST_PAIR
+
+
+#include <assert.h>
+#include <stdio.h>
+
+
+int
+main ()
+{
+    pair_t* pairPtr;
+
+    puts("Starting...");
+
+    pairPtr = pair_alloc((void*)1, (void*)2);
+
+    assert((long)pairPtr->firstPtr == 1);
+    assert((long)pairPtr->secondPtr == 2);
+
+    pair_swap(pairPtr);
+
+    assert((long)pairPtr->firstPtr == 2);
+    assert((long)pairPtr->secondPtr == 1);
+
+    pair_swap(pairPtr);
+
+    assert((long)pairPtr->firstPtr == 1);
+    assert((long)pairPtr->secondPtr == 2);
+
+    pair_free(pairPtr);
+
+    puts("All tests passed.");
+
+    return 0;
+}
+
+
+#endif /* TEST_PAIR */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of pair.c
  *
  * =============================================================================
  */

@@ -34,10 +34,12 @@ cp ../backend/$backend/Makefile.flags .
 cp ../backend/$backend/thread.h lib/
 cp ../backend/$backend/thread.c lib/
 cp ../backend/$backend/tm.h lib/
+../../build.sh $backend $2
 
 CPU_FREQ=$(cat CPU_FREQ_kHZ.txt | tr -d '[:space:]')
 for F in $FOLDERS
 do
+  echo "cd $F"
   cd $F
   rm *.o || true
   rm $F

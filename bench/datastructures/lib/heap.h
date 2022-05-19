@@ -1,6 +1,6 @@
 /* =============================================================================
  *
- * random.h
+ * heap.c
  *
  * =============================================================================
  *
@@ -69,96 +69,89 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef HEAP_H
+#define HEAP_H 1
 
 
-#include "mt19937ar.h"
+#include "tm.h"
+#include "types.h"
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+typedef struct heap heap_t;
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * heap_alloc
+ * -- Returns NULL on failure
  * =============================================================================
  */
-random_t*
-random_alloc ();
+heap_t*
+heap_alloc (long initCapacity, long (*compare)(const void*, const void*));
 
 
 /* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
-
-
-/* =============================================================================
- * random_free
+ * heap_free
  * =============================================================================
  */
 void
-random_free (random_t* randomPtr);
+heap_free (heap_t* heapPtr);
 
 
 /* =============================================================================
- * Prandom_free
+ * heap_insert
+ * -- Returns FALSE on failure
  * =============================================================================
  */
-void
-Prandom_free (random_t* randomPtr);
+bool_t
+heap_insert (heap_t* heapPtr, void* dataPtr);
 
 
 /* =============================================================================
- * random_seed
+ * TMheap_insert
+ * -- Returns FALSE on failure
  * =============================================================================
  */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
+TM_CALLABLE
+bool_t
+TMheap_insert (TM_ARGDECL  heap_t* heapPtr, void* dataPtr);
 
 
 /* =============================================================================
- * random_generate
+ * heap_remove
+ * -- Returns NULL if empty
  * =============================================================================
  */
-unsigned long
-random_generate (random_t* randomPtr);
+void*
+heap_remove (heap_t* heapPtr);
 
 
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+/* =============================================================================
+ * TMheap_remove
+ * -- Returns NULL if empty
+ * =============================================================================
+ */
+TM_CALLABLE
+void*
+TMheap_remove (TM_ARGDECL  heap_t* heapPtr);
 
 
-#ifdef __cplusplus
-}
-#endif
+/* =============================================================================
+ * heap_isValid
+ * =============================================================================
+ */
+bool_t
+heap_isValid (heap_t* heapPtr);
 
 
-#endif /* RANDOM_H */
+#define TMHEAP_INSERT(h, d)             TMheap_insert(TM_ARG  (h), (d))
+#define TMHEAP_REMOVE(h)                TMheap_remove(TM_ARG  (h))
+
+
+#endif /* HEAP_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of heap.c
  *
  * =============================================================================
  */

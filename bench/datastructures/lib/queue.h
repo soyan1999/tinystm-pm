@@ -1,6 +1,6 @@
 /* =============================================================================
  *
- * random.h
+ * queue.h
  *
  * =============================================================================
  *
@@ -69,11 +69,13 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef QUEUE_H
+#define QUEUE_H 1
 
 
-#include "mt19937ar.h"
+#include "random.h"
+#include "tm.h"
+#include "types.h"
 
 
 #ifdef __cplusplus
@@ -81,71 +83,145 @@ extern "C" {
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+typedef struct queue queue_t;
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * queue_alloc
  * =============================================================================
  */
-random_t*
-random_alloc ();
+queue_t*
+queue_alloc (long initCapacity);
 
 
 /* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * Pqueue_alloc
  * =============================================================================
  */
-random_t*
-Prandom_alloc ();
+queue_t*
+Pqueue_alloc (long initCapacity);
 
 
 /* =============================================================================
- * random_free
+ * TMqueue_alloc
  * =============================================================================
  */
-void
-random_free (random_t* randomPtr);
+queue_t*
+TMqueue_alloc (TM_ARGDECL  long initCapacity);
 
 
 /* =============================================================================
- * Prandom_free
+ * queue_free
  * =============================================================================
  */
 void
-Prandom_free (random_t* randomPtr);
+queue_free (queue_t* queuePtr);
 
 
 /* =============================================================================
- * random_seed
+ * Pqueue_free
  * =============================================================================
  */
 void
-random_seed (random_t* randomPtr, unsigned long seed);
+Pqueue_free (queue_t* queuePtr);
 
 
 /* =============================================================================
- * random_generate
+ * TMqueue_free
  * =============================================================================
  */
-unsigned long
-random_generate (random_t* randomPtr);
+void
+TMqueue_free (TM_ARGDECL  queue_t* queuePtr);
 
 
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+/* =============================================================================
+ * queue_isEmpty
+ * =============================================================================
+ */
+bool_t
+queue_isEmpty (queue_t* queuePtr);
+
+
+/* =============================================================================
+ * TMqueue_isEmpty
+ * =============================================================================
+ */
+TM_CALLABLE
+bool_t
+TMqueue_isEmpty (TM_ARGDECL  queue_t* queuePtr);
+
+
+/* =============================================================================
+ * queue_clear
+ * =============================================================================
+ */
+void
+queue_clear (queue_t* queuePtr);
+
+
+/* =============================================================================
+ * queue_shuffle
+ * =============================================================================
+ */
+void
+queue_shuffle (queue_t* queuePtr, random_t* randomPtr);
+
+
+/* =============================================================================
+ * queue_push
+ * =============================================================================
+ */
+bool_t
+queue_push (queue_t* queuePtr, void* dataPtr);
+
+
+/* =============================================================================
+ * Pqueue_push
+ * =============================================================================
+ */
+bool_t
+Pqueue_push (queue_t* queuePtr, void* dataPtr);
+
+
+/* =============================================================================
+ * TMqueue_push
+ * =============================================================================
+ */
+TM_CALLABLE
+bool_t
+TMqueue_push (TM_ARGDECL  queue_t* queuePtr, void* dataPtr);
+
+
+/* =============================================================================
+ * queue_pop
+ * =============================================================================
+ */
+void*
+queue_pop (queue_t* queuePtr);
+
+
+/* =============================================================================
+ * TMqueue_pop
+ * =============================================================================
+ */
+TM_CALLABLE
+void*
+TMqueue_pop (TM_ARGDECL  queue_t* queuePtr);
+
+
+#define PQUEUE_ALLOC(c)     Pqueue_alloc(c)
+#define PQUEUE_FREE(q)      Pqueue_free(q)
+#define PQUEUE_ISEMPTY(q)   queue_isEmpty(q)
+#define PQUEUE_CLEAR(q)     queue_clear(q)
+#define PQUEUE_SHUFFLE(q)   queue_shuffle(q, randomPtr);
+#define PQUEUE_PUSH(q, d)   Pqueue_push(q, (void*)(d))
+#define PQUEUE_POP(q)       queue_pop(q)
+
+#define TMQUEUE_ALLOC(c)    TMqueue_alloc(TM_ARG_ALONE  c)
+#define TMQUEUE_FREE(q)     TMqueue_free(TM_ARG  q)
+#define TMQUEUE_ISEMPTY(q)  TMqueue_isEmpty(TM_ARG  q)
+#define TMQUEUE_PUSH(q, d)  TMqueue_push(TM_ARG  q, (void*)(d))
+#define TMQUEUE_POP(q)      TMqueue_pop(TM_ARG  q)
 
 
 #ifdef __cplusplus
@@ -153,12 +229,13 @@ random_generate (random_t* randomPtr);
 #endif
 
 
-#endif /* RANDOM_H */
+#endif /* QUEUE_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of queue.h
  *
  * =============================================================================
  */
+

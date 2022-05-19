@@ -1,6 +1,7 @@
 /* =============================================================================
  *
- * random.h
+ * hash.h
+ * -- Collection of hash functions
  *
  * =============================================================================
  *
@@ -69,11 +70,11 @@
  */
 
 
-#ifndef RANDOM_H
-#define RANDOM_H 1
+#ifndef HASH_H
+#define HASH_H 1
 
 
-#include "mt19937ar.h"
+#include "types.h"
 
 
 #ifdef __cplusplus
@@ -81,71 +82,20 @@ extern "C" {
 #endif
 
 
-#define RANDOM_DEFAULT_SEED (0)
-
-typedef struct random {
-    unsigned long (*rand)(unsigned long*, unsigned long*);
-    unsigned long mt[N];
-    unsigned long mti;
-} random_t;
+/* =============================================================================
+ * hash_dbj2
+ * =============================================================================
+ */
+ulong_t
+hash_dbj2 (char* str);
 
 
 /* =============================================================================
- * random_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
+ * hash_sdbm
  * =============================================================================
  */
-random_t*
-random_alloc ();
-
-
-/* =============================================================================
- * Prandom_alloc
- * -- allocates and initialize datastructure
- * -- Returns NULL if failure
- * =============================================================================
- */
-random_t*
-Prandom_alloc ();
-
-
-/* =============================================================================
- * random_free
- * =============================================================================
- */
-void
-random_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * Prandom_free
- * =============================================================================
- */
-void
-Prandom_free (random_t* randomPtr);
-
-
-/* =============================================================================
- * random_seed
- * =============================================================================
- */
-void
-random_seed (random_t* randomPtr, unsigned long seed);
-
-
-/* =============================================================================
- * random_generate
- * =============================================================================
- */
-unsigned long
-random_generate (random_t* randomPtr);
-
-
-#define PRANDOM_ALLOC()                 Prandom_alloc()
-#define PRANDOM_FREE(r)                 Prandom_free(r)
-#define PRANDOM_SEED(r, s)              random_seed(r, s)
-#define PRANDOM_GENERATE(r)             random_generate(r)
+ulong_t
+hash_sdbm (char* str);
 
 
 #ifdef __cplusplus
@@ -153,12 +103,12 @@ random_generate (random_t* randomPtr);
 #endif
 
 
-#endif /* RANDOM_H */
+#endif /* HASH_H */
 
 
 /* =============================================================================
  *
- * End of random.h
+ * End of hash.h
  *
  * =============================================================================
  */

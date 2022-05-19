@@ -117,8 +117,8 @@ void *pstm_local_nvmalloc(int threadId, long size)
 
 void pstm_nvm_check() {
   #ifdef PMEM_CHECK
-  for (uint64_t i = 0; i < PSTM_SHARE_HEAP_SIZE + PSTM_HEAP_SIZE_PER_THREAD * thread_count; i += PAGE_SIZE) {
-    assert(memcmp((void *)((uint64_t)pstm_nvram_ptr+i),PADDR_TO_VADDR((void *)((uint64_t)pstm_nvram_ptr+i)),PAGE_SIZE) == 0);
+  for (uint64_t i = 0; i < PSTM_SHARE_HEAP_SIZE + PSTM_HEAP_SIZE_PER_THREAD * thread_count; i += PAGE_SIZE>>6) {
+    assert(memcmp((void *)((uint64_t)pstm_nvram_ptr+i),PADDR_TO_VADDR((void *)((uint64_t)pstm_nvram_ptr+i)),PAGE_SIZE>>6) == 0);
   }
   #endif
 }
