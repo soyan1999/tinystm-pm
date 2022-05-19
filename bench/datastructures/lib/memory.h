@@ -74,6 +74,7 @@
 #define MEMORY_H 1
 
 #include <stddef.h>
+#include "tm.h"
 #include "types.h"
 
 #ifdef __cplusplus
