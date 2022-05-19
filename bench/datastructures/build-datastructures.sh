@@ -1,6 +1,6 @@
 #!/bin/bash
 
-FOLDERS="hashmap"
+FOLDERS="hashmap btree rbtree_"
 
 if [ $# -eq 0 ] ; then
     echo " === ERROR At the very least, we need the backend name in the first parameter. === "

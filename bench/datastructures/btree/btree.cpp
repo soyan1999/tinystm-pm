@@ -232,7 +232,7 @@ long set_contains(TM_ARGDECL long  val)
   unsigned int seed;
   long operations;
 
-void *test(void *data)
+void test(void *data)
 {
 
   TM_THREAD_ENTER();
@@ -267,7 +267,7 @@ void *test(void *data)
   }
 
   TM_THREAD_EXIT();
-  return NULL;
+  // return NULL;
 }
 
 # define no_argument        0

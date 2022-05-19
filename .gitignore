@@ -33,6 +33,8 @@
 
 .vscode/*
 bench/datastructures/hashmap/hashmap
+bench/datastructures/btree/btree
+bench/datastructures/rbtree/rbtree
 bench/tpcc/code/tpcc
 
 bench/datastructures/Defines.common.mk
