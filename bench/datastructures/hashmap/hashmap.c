@@ -196,7 +196,7 @@ long set_add(TM_ARGDECL long val)
     TM_BEGIN();
     long *data = S_MALLOC(sizeof(long));
     TM_SHARED_WRITE(*data,val);
-    res = hashtable_insert(set,data,data);
+    res = TMhashtable_insert(set,data,data);
     TM_END();
 
     return res;
@@ -207,7 +207,7 @@ int set_remove(TM_ARGDECL long val)
     int res = 0;
 
     TM_BEGIN();
-    res = hashtable_remove(set,&val);
+    res = TMhashtable_remove(set,&val);
     TM_END();
 
     return res;
@@ -218,7 +218,7 @@ long set_contains(TM_ARGDECL long  val)
     long res = 0;
 
     TM_BEGIN();
-    res = hashtable_containsKey(set,&val);
+    res = TMhashtable_containsKey(set,&val);
     TM_END();
 
     return res;
