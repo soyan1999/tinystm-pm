@@ -30,7 +30,9 @@
 #define FENCE_X86_INST       "sfence"
 #define ARCH_CACHE_LINE_SIZE 64
 #define PAGE_SIZE            4096
+
 // #define PMEM_CHECK
+// #define LOG_USE_DRAM
 
 #define FLUSH_CL(_addr) \
   __asm__ volatile(FLUSH_X86_INST " (%0)" : : "r"((void*)((uint64_t)(_addr) & -ARCH_CACHE_LINE_SIZE)) : "memory") \

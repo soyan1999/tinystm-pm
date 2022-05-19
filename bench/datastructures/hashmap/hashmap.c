@@ -253,7 +253,7 @@ void *test(void *data)
       if (val == -1) {
         /* Add random value */  
         val = (rand_r(&mySeed) % range) + 1;
-        if(set_add(TM_ARG val) == 0) {
+        if(set_add(TM_ARG val) != 0) {
           val = -1;
         }
       } else {

@@ -40,9 +40,9 @@
 
 static volatile int stop;
 
-hashtable_t *set = NULL;
+struct bplus_tree *set = NULL;
 
-#define N_BUCKETS 1024
+// #define N_BUCKETS 1024
 // List* bucket[N_BUCKETS];
 
 // TM_CALLABLE
@@ -162,44 +162,40 @@ hashtable_t *set = NULL;
 //     return hm_remove(TM_ARG (bucket[val % N_BUCKETS]), val);
 // }
 
-static ulong_t
-hash (const void* keyPtr)
-{
-    return ((ulong_t)(*(long*)keyPtr));
-}
+// static ulong_t
+// hash (const void* keyPtr)
+// {
+//     return ((ulong_t)(*(long*)keyPtr));
+// }
 
-static long
-comparePairs (const pair_t* a, const pair_t* b)
-{
-    return (*(long*)(a->firstPtr) - *(long*)(b->firstPtr));
-}
+// static long
+// comparePairs (const pair_t* a, const pair_t* b)
+// {
+//     return (*(long*)(a->firstPtr) - *(long*)(b->firstPtr));
+// }
 
 void set_alloc() {
-  set = hashtable_alloc(N_BUCKETS,hash,comparePairs,-1,-1);
+  set = bplus_tree_init(MAX_LEVEL,MAX_ORDER,MAX_ENTRIES);
 }
 
 void set_free() {
-  hashtable_free(set);
+  bplus_tree_deinit(set);
 }
 
-long set_add_seq(long val) {
-	long *data = S_MALLOC(sizeof(long));
-  *data = val;
-  hashtable_insert(set,data,data);
-  return 1;
-}
+// long set_add_seq(long val) {
+// 	bplus_tree_put(set,val,val);
+//   return 1;
+// }
 
 long set_add(TM_ARGDECL long val)
 {
     int res = 0;
 
     TM_BEGIN();
-    long *data = S_MALLOC(sizeof(long));
-    TM_SHARED_WRITE(*data,val);
-    res = hashtable_insert(set,data,data);
+    res = bplus_tree_put(set,val,val);
     TM_END();
 
-    return res;
+    return !res;
 }
 
 int set_remove(TM_ARGDECL long val)
@@ -207,10 +203,10 @@ int set_remove(TM_ARGDECL long val)
     int res = 0;
 
     TM_BEGIN();
-    res = hashtable_remove(set,&val);
+    res = bplus_tree_delete(set,val);
     TM_END();
 
-    return res;
+    return !res;
 }
 
 long set_contains(TM_ARGDECL long  val)
@@ -218,7 +214,7 @@ long set_contains(TM_ARGDECL long  val)
     long res = 0;
 
     TM_BEGIN();
-    res = hashtable_containsKey(set,&val);
+    res = bplus_tree_search(set,val);
     TM_END();
 
     return res;
@@ -253,7 +249,7 @@ void *test(void *data)
       if (val == -1) {
         /* Add random value */  
         val = (rand_r(&mySeed) % range) + 1;
-        if(set_add(TM_ARG val) == 0) {
+        if(set_add(TM_ARG val) != 0) {
           val = -1;
         }
       } else {
@@ -387,11 +383,11 @@ MAIN(argc, argv) {
   set_alloc();
 
   /* Populate set */
-  printf("Adding %d entries to set\n", initial);
-  for (i = 0; i < initial; i++) {
-    val = (rand() % range) + 1;
-    set_add_seq(val);
-  }
+  // printf("Adding %d entries to set\n", initial);
+  // for (i = 0; i < initial; i++) {
+  //   val = (rand() % range) + 1;
+  //   set_add_seq(val);
+  // }
 
   seed = rand();
   TIMER_READ(start);

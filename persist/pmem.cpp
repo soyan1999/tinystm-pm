@@ -56,9 +56,13 @@ void pstm_nvm_create(int numThread) {
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
   pstm_nvram_heap_ptr = pstm_nvram_ptr;
   pstm_nvram_priv_heap_ptr = (void*)(((uintptr_t)pstm_nvram_ptr) + PSTM_SHARE_HEAP_SIZE);
+  #ifndef LOG_USE_DRAM
   pstm_nvram_logs_root_ptr = alocateInNVRAM("/mnt/pmem0/ysha/tinystm-pm/", "nvmalloc_file_shar_log",
     sizeof(log_root)*flusher_count + PSTM_LOG_SIZE,
   /*MAP_SHARED_VALIDATE|MAP_SYNC*/MAP_SHARED, NULL);
+  #else
+  pstm_nvram_logs_root_ptr = mmap(NULL , sizeof(log_root)*flusher_count + PSTM_LOG_SIZE, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+  #endif
   pstm_nvram_logs_ptr = (void*)(((uintptr_t)pstm_nvram_logs_root_ptr) + sizeof(log_root)*flusher_count);
 }
 
