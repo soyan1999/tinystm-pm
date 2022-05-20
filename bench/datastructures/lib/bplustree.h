@@ -449,8 +449,10 @@ bplus_tree_insert(bplus_tree* tree, long key, long data)
         root->entries = 1;
 	    root->next = nullptr;
 	    root->parent = nullptr;
-        tree->head[0] = (struct bplus_node *)root;
-        tree->root = (struct bplus_node *)root;
+        // tree->head[0] = (struct bplus_node *)root;
+        TM_SHARED_WRITE_P(tree->head[0], (struct bplus_node *)root);
+        // tree->root = (struct bplus_node *)root;
+        TM_SHARED_WRITE_P(tree->root, (struct bplus_node *)root);
         return 0;
 }
 
@@ -460,111 +462,142 @@ void non_leaf_remove(struct bplus_tree *tree, struct bplus_non_leaf *node, long 
         long i, j, k;
         struct bplus_non_leaf *sibling;
 
-        if (node->children <= (tree->order + 1) / 2) {
-                struct bplus_non_leaf *parent = node->parent;
+        if (TM_SHARED_READ(node->children) <= (TM_SHARED_READ(tree->order) + 1) / 2) {
+                struct bplus_non_leaf *parent = TM_SHARED_READ_P(node->parent);
                 if (parent != nullptr) {
                         long borrow = 0;
                         /* find which sibling node with same parent to be borrowed from */
-                        i = key_binary_search(parent->key, parent->children - 1, node->key[0]);
+                        i = key_binary_search(parent->key, TM_SHARED_READ(parent->children) - 1, TM_SHARED_READ(node->key[0]));
                         // assert(i < 0);
                         i = -i - 1;
                         if (i == 0) {
                                 /* no left sibling, choose right one */
-                                sibling = (struct bplus_non_leaf *)parent->sub_ptr[i + 1];
+                                sibling = (struct bplus_non_leaf *)TM_SHARED_READ_P(parent->sub_ptr[i + 1]);
                                 borrow = BORROW_FROM_RIGHT;
-                        } else if (i == parent->children - 1) {
+                        } else if (i == TM_SHARED_READ(parent->children) - 1) {
                                 /* no right sibling, choose left one */
-                                sibling = (struct bplus_non_leaf *)parent->sub_ptr[i - 1];
+                                sibling = (struct bplus_non_leaf *)TM_SHARED_READ_P(parent->sub_ptr[i - 1]);
                                 borrow = BORROW_FROM_LEFT;
                         } else {
-                                struct bplus_non_leaf *l_sib = (struct bplus_non_leaf *)parent->sub_ptr[i - 1];
-                                struct bplus_non_leaf *r_sib = (struct bplus_non_leaf *)parent->sub_ptr[i + 1];
+                                struct bplus_non_leaf *l_sib = (struct bplus_non_leaf *)TM_SHARED_READ_P(parent->sub_ptr[i - 1]);
+                                struct bplus_non_leaf *r_sib = (struct bplus_non_leaf *)TM_SHARED_READ_P(parent->sub_ptr[i + 1]);
                                 /* if both left and right sibling found, choose the one with more children */
-                                sibling = l_sib->children >= r_sib->children ? l_sib : r_sib;
-                                borrow = l_sib->children >= r_sib->children ? BORROW_FROM_LEFT : BORROW_FROM_RIGHT;
+                                sibling = TM_SHARED_READ(l_sib->children) >= TM_SHARED_READ(r_sib->children) ? l_sib : r_sib;
+                                borrow = TM_SHARED_READ(l_sib->children) >= TM_SHARED_READ(r_sib->children) ? BORROW_FROM_LEFT : BORROW_FROM_RIGHT;
                         }
 
                         /* locate parent node key to update later */
                         i = i - 1;
 
                         if (borrow == BORROW_FROM_LEFT) {
-                                if (sibling->children > (tree->order + 1) / 2) {
+                                if (TM_SHARED_READ(sibling->children) > (TM_SHARED_READ(tree->order) + 1) / 2) {
                                         /* node's elements right shift */
                                         for (j = remove; j > 0; j--) {
-                                                node->key[j] = node->key[j - 1];
+                                                // node->key[j] = node->key[j - 1];
+                                                TM_SHARED_WRITE(node->key[j], TM_SHARED_READ(node->key[j - 1]));
                                         }
                                         for (j = remove + 1; j > 0; j--) {
-                                                node->sub_ptr[j] = node->sub_ptr[j - 1];
+                                                // node->sub_ptr[j] = node->sub_ptr[j - 1];
+                                                TM_SHARED_WRITE_P(node->sub_ptr[j], TM_SHARED_READ_P(node->sub_ptr[j - 1]));
                                         }
                                         /* parent key right rotation */
-                                        node->key[0] = parent->key[i];
-                                        parent->key[i] = sibling->key[sibling->children - 2];
+                                        // node->key[0] = parent->key[i];
+                                        TM_SHARED_WRITE(node->key[0], TM_SHARED_READ(parent->key[i]));
+                                        // parent->key[i] = sibling->key[sibling->children - 2];
+                                        TM_SHARED_WRITE(parent->key[i], TM_SHARED_READ(sibling->key[sibling->children - 2]));
                                         /* borrow the last sub-node from left sibling */
-                                        node->sub_ptr[0] = sibling->sub_ptr[sibling->children - 1];
-                                        sibling->sub_ptr[sibling->children - 1]->parent = node;
-                                        sibling->children--;
+                                        // node->sub_ptr[0] = sibling->sub_ptr[sibling->children - 1];
+                                        TM_SHARED_WRITE_P(node->sub_ptr[0], TM_SHARED_READ_P(sibling->sub_ptr[TM_SHARED_READ(sibling->children) - 1]));
+                                        // sibling->sub_ptr[sibling->children - 1]->parent = node;
+                                        TM_SHARED_WRITE_P(sibling->sub_ptr[TM_SHARED_READ(sibling->children) - 1]->parent, node);
+                                        // sibling->children--;
+                                        TM_SHARED_WRITE(sibling->children, TM_SHARED_READ(sibling->children) - 1);
                                 } else {
                                         /* move parent key down */
-                                        sibling->key[sibling->children - 1] = parent->key[i];
+                                        // sibling->key[sibling->children - 1] = parent->key[i];
+                                        TM_SHARED_WRITE(sibling->key[TM_SHARED_READ(sibling->children) - 1], TM_SHARED_READ(parent->key[i]));
                                         /* merge with left sibling */
-                                        for (j = sibling->children, k = 0; k < node->children - 1; k++) {
+                                        for (j = TM_SHARED_READ(sibling->children), k = 0; k < TM_SHARED_READ(node->children) - 1; k++) {
                                                 if (k != remove) {
-                                                        sibling->key[j] = node->key[k];
+                                                        // sibling->key[j] = node->key[k];
+                                                        TM_SHARED_WRITE(sibling->key[j], TM_SHARED_READ(node->key[k]));
                                                         j++;
                                                 }
                                         }
-                                        for (j = sibling->children, k = 0; k < node->children; k++) {
+                                        for (j = TM_SHARED_READ(sibling->children), k = 0; k < TM_SHARED_READ(node->children); k++) {
                                                 if (k != remove + 1) {
-                                                        sibling->sub_ptr[j] = node->sub_ptr[k];
-                                                        node->sub_ptr[k]->parent = sibling;
+                                                        // sibling->sub_ptr[j] = node->sub_ptr[k];
+                                                        TM_SHARED_WRITE_P(sibling->sub_ptr[j], TM_SHARED_READ_P(node->sub_ptr[k]));
+                                                        // node->sub_ptr[k]->parent = sibling;
+                                                        TM_SHARED_WRITE_P(node->sub_ptr[k]->parent, sibling);
                                                         j++;
                                                 }
                                         }
-                                        sibling->children = j;
+                                        // sibling->children = j;
+                                        TM_SHARED_WRITE(sibling->children, j);
                                         /* delete merged node */
-                                        sibling->next = node->next;
+                                        // sibling->next = node->next;
+                                        TM_SHARED_WRITE_P(sibling->next, TM_SHARED_READ_P(node->next));
                                         non_leaf_delete(node);
                                         /* trace upwards */
                                         non_leaf_remove(tree, parent, i, level + 1);
                                 }
                         } else {
                                 /* remove key first in case of overflow during merging with sibling node */
-                                for (; remove < node->children - 2; remove++) {
-                                        node->key[remove] = node->key[remove + 1];
-                                        node->sub_ptr[remove + 1] = node->sub_ptr[remove + 2];
+                                for (; remove < TM_SHARED_READ(node->children) - 2; remove++) {
+                                        // node->key[remove] = node->key[remove];
+                                        TM_SHARED_WRITE(node->key[remove], TM_SHARED_READ(node->key[remove]));
+                                        // node->sub_ptr[remove + 1] = node->sub_ptr[remove + 1];
+                                        TM_SHARED_WRITE_P(node->sub_ptr[remove + 1], TM_SHARED_READ_P(node->sub_ptr[remove + 1]));
                                 }
-                                node->children--;
-                                if (sibling->children > (tree->order + 1) / 2) {
+                                // node->children--;
+                                TM_SHARED_WRITE(node->children, TM_SHARED_READ(node->children) - 1);
+                                if (TM_SHARED_READ(sibling->children) > (TM_SHARED_READ(tree->order) + 1) / 2) {
                                         /* parent key left rotation */
-                                        node->key[node->children - 1] = parent->key[i + 1];
-                                        parent->key[i + 1] = sibling->key[0];
+                                        // node->key[node->children - 1] = parent->key[i + 1];
+                                        TM_SHARED_WRITE(node->key[TM_SHARED_READ(node->children) - 1], TM_SHARED_READ(parent->key[i + 1]));
+                                        // parent->key[i + 1] = sibling->key[0];
+                                        TM_SHARED_WRITE(parent->key[i+1], TM_SHARED_READ(sibling->key[0]));
                                         /* borrow the frist sub-node from right sibling */
-                                        node->sub_ptr[node->children] = sibling->sub_ptr[0];
-                                        sibling->sub_ptr[0]->parent = node;
-                                        node->children++;
+                                        // node->sub_ptr[node->children] = sibling->sub_ptr[0];
+                                        TM_SHARED_WRITE_P(node->sub_ptr[TM_SHARED_READ(node->children)], TM_SHARED_READ_P(sibling->sub_ptr[0]));
+                                        // sibling->sub_ptr[0]->parent = node;
+                                        TM_SHARED_WRITE_P(sibling->sub_ptr[0]->parent, node);
+                                        // node->children++;
+                                        TM_SHARED_WRITE(node->children, TM_SHARED_READ(node->children) + 1);
                                         /* left shift in right sibling */
-                                        for (j = 0; j < sibling->children - 2; j++) {
-                                                sibling->key[j] = sibling->key[j + 1];
+                                        for (j = 0; j < TM_SHARED_READ(sibling->children) - 2; j++) {
+                                                // sibling->key[j] = sibling->key[j + 1];
+                                                TM_SHARED_WRITE(sibling->key[j], TM_SHARED_READ(sibling->key[j + 1]));
                                         }
-                                        for (j = 0; j < sibling->children - 1; j++) {
-                                                sibling->sub_ptr[j] = sibling->sub_ptr[j + 1];
+                                        for (j = 0; j < TM_SHARED_READ(sibling->children) - 1; j++) {
+                                                // sibling->sub_ptr[j] = sibling->sub_ptr[j + 1];
+                                                TM_SHARED_WRITE_P(sibling->sub_ptr[j], TM_SHARED_READ_P(sibling->sub_ptr[j + 1]));
                                         }
-                                        sibling->children--;
+                                        // sibling->children--;
+                                        TM_SHARED_WRITE(sibling->children, TM_SHARED_READ(sibling->children) - 1);
                                 } else {
                                         /* move parent key down */
-                                        node->key[node->children - 1] = parent->key[i + 1];
-                                        node->children++;
+                                        // node->key[node->children - 1] = parent->key[i + 1];
+                                        TM_SHARED_WRITE(node->key[TM_SHARED_READ(node->children) - 1], TM_SHARED_READ(parent->key[i + 1]));
+                                        // node->children++;
+                                        TM_SHARED_WRITE(node->children, TM_SHARED_READ(node->children) + 1);
                                         /* merge with right sibling */
-                                        for (j = node->children - 1, k = 0; k < sibling->children - 1; j++, k++) {
-                                                node->key[j] = sibling->key[k];
+                                        for (j = TM_SHARED_READ(node->children) - 1, k = 0; k < TM_SHARED_READ(sibling->children) - 1; j++, k++) {
+                                                // node->key[j] = sibling->key[k];
+                                                TM_SHARED_WRITE(node->key[j], TM_SHARED_READ(sibling->key[k]));
                                         }
-                                        for (j = node->children - 1, k = 0; k < sibling->children; j++, k++) {
-                                                node->sub_ptr[j] = sibling->sub_ptr[k];
-                                                sibling->sub_ptr[k]->parent = node;
+                                        for (j = TM_SHARED_READ(node->children) - 1, k = 0; k < TM_SHARED_READ(sibling->children); j++, k++) {
+                                                // node->sub_ptr[j] = sibling->sub_ptr[k];
+                                                TM_SHARED_WRITE_P(node->sub_ptr[j], TM_SHARED_READ_P(sibling->sub_ptr[k]));
+                                                // sibling->sub_ptr[k]->parent = node;
+                                                TM_SHARED_WRITE_P(sibling->sub_ptr[k]->parent, node);
                                         }
-                                        node->children = j;
+                                        // node->children = j;
+                                        TM_SHARED_WRITE(node->children, j);
                                         /* delete merged sibling */
-                                        node->next = sibling->next;
+                                        // node->next = sibling->next;
+                                        TM_SHARED_WRITE_P(node->next, TM_SHARED_READ_P(sibling->next));
                                         non_leaf_delete(sibling);
                                         /* trace upwards */
                                         non_leaf_remove(tree, parent, i + 1, level + 1);
@@ -573,12 +606,15 @@ void non_leaf_remove(struct bplus_tree *tree, struct bplus_non_leaf *node, long 
                         /* deletion finishes */
                         return;
                 } else {
-                        if (node->children == 2) {
+                        if (TM_SHARED_READ(node->children) == 2) {
                                 /* delete old root node */
                                 // assert(remove == 0);
-                                node->sub_ptr[0]->parent = nullptr;
-                                tree->root = node->sub_ptr[0];
-                                tree->head[level] = nullptr;
+                                // node->sub_ptr[0]->parent = nullptr;
+                                TM_SHARED_WRITE_P(node->sub_ptr[0]->parent, nullptr);
+                                // tree->root = node->sub_ptr[0];
+                                TM_SHARED_WRITE_P(tree->root, TM_SHARED_READ_P(node->sub_ptr[0]));
+                                // tree->head[level] = nullptr;
+                                TM_SHARED_WRITE_P(tree->head[level], nullptr);
                                 non_leaf_delete(node);
                                 return;
                         }
@@ -587,11 +623,14 @@ void non_leaf_remove(struct bplus_tree *tree, struct bplus_non_leaf *node, long 
         
         /* simple deletion */
         assert(node->children > 2);
-        for (; remove < node->children - 2; remove++) {
-                node->key[remove] = node->key[remove + 1];
-                node->sub_ptr[remove + 1] = node->sub_ptr[remove + 2];
+        for (; remove < TM_SHARED_READ(node->children) - 2; remove++) {
+                // node->key[remove] = node->key[remove + 1];
+                TM_SHARED_WRITE(node->key[remove], TM_SHARED_READ(node->key[remove + 1]));
+                // node->sub_ptr[remove + 1] = node->sub_ptr[remove + 2];
+                TM_SHARED_WRITE_P(node->sub_ptr[remove + 1], TM_SHARED_READ_P(node->sub_ptr[remove + 2]));
         }
-        node->children--;
+        // node->children--;
+        TM_SHARED_WRITE(node->children, TM_SHARED_READ(node->children) - 1);
 }
 
 
