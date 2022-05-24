@@ -504,7 +504,7 @@ void non_leaf_remove(struct bplus_tree *tree, struct bplus_non_leaf *node, long 
                                         // node->key[0] = parent->key[i];
                                         TM_SHARED_WRITE(node->key[0], TM_SHARED_READ(parent->key[i]));
                                         // parent->key[i] = sibling->key[sibling->children - 2];
-                                        TM_SHARED_WRITE(parent->key[i], TM_SHARED_READ(sibling->key[sibling->children - 2]));
+                                        TM_SHARED_WRITE(parent->key[i], TM_SHARED_READ(sibling->key[TM_SHARED_READ(sibling->children) - 2]));
                                         /* borrow the last sub-node from left sibling */
                                         // node->sub_ptr[0] = sibling->sub_ptr[sibling->children - 1];
                                         TM_SHARED_WRITE_P(node->sub_ptr[0], TM_SHARED_READ_P(sibling->sub_ptr[TM_SHARED_READ(sibling->children) - 1]));
@@ -546,9 +546,9 @@ void non_leaf_remove(struct bplus_tree *tree, struct bplus_non_leaf *node, long 
                                 /* remove key first in case of overflow during merging with sibling node */
                                 for (; remove < TM_SHARED_READ(node->children) - 2; remove++) {
                                         // node->key[remove] = node->key[remove];
-                                        TM_SHARED_WRITE(node->key[remove], TM_SHARED_READ(node->key[remove]));
+                                        TM_SHARED_WRITE(node->key[remove], TM_SHARED_READ(node->key[remove + 1]));
                                         // node->sub_ptr[remove + 1] = node->sub_ptr[remove + 1];
-                                        TM_SHARED_WRITE_P(node->sub_ptr[remove + 1], TM_SHARED_READ_P(node->sub_ptr[remove + 1]));
+                                        TM_SHARED_WRITE_P(node->sub_ptr[remove + 1], TM_SHARED_READ_P(node->sub_ptr[remove + 2]));
                                 }
                                 // node->children--;
                                 TM_SHARED_WRITE(node->children, TM_SHARED_READ(node->children) - 1);
