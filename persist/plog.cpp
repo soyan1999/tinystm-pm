@@ -816,6 +816,7 @@ LogReplayer *log_replayer;
 
 uint64_t LogFlusher::log_area_size = 0;
 uint64_t LogFlusher::log_page_num = 0;
+LogFlusher** LogFlusher::flushers = nullptr;
 
 void init_logers() {
   LogFlusher::log_area_size = PSTM_LOG_SIZE / PAGE_SIZE / flusher_count * PAGE_SIZE;
