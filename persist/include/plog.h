@@ -21,6 +21,7 @@
 #define ORDER_COLLECT
 // #define USE_NTSTORE
 #define GROUP_SIZE UINT64_MAX //UINT64_MAX
+#define TRACE_DEP
 
 // #ifdef __cplusplus
 // extern "C" {
@@ -36,6 +37,7 @@ void pstm_plog_commit();
 void pstm_plog_exit_thread();
 void pstm_plog_end();
 void pstm_plog_block_read(uint64_t ts);
+uint64_t pstm_plog_trace_dep(int thread_id, uint64_t ts);
 
 // #ifdef __cplusplus
 // }

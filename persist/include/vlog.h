@@ -113,6 +113,7 @@ void pstm_vlog_after_gen_ts(uint64_t ts);
 void pstm_vlog_commit(uint64_t ts);
 void pstm_vlog_abort();
 void pstm_vlog_free();
+void pstm_vlog_trace_dep(uint64_t lock_val);
 
 // #ifdef __cplusplus
 // }

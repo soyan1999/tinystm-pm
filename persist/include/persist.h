@@ -29,6 +29,8 @@ void pstm_before_tx_commit(uint64_t ts);                   // collect and merge 
 void pstm_before_tx_abort();                               // clean vlog
 void pstm_before_thread_exit();                           // free volatile log
 void pstm_after_tm_exit();                                // free collecter nvm and shadowdram, set crash value
+int get_thread_id();
+void pstm_trace_dep(uint64_t lock_val);
 
 
 

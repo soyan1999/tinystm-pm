@@ -35,6 +35,7 @@ class LogFlusher {
   // static int flusher_count;
   static uint64_t log_area_size;
   static uint64_t log_page_num; //should be 2^n
+  static LogFlusher **flushers;
 
   static const uint64_t wait_vlog_duration = 1000000;
 
@@ -70,7 +71,7 @@ class LogFlusher {
   std::list<uint64_t> persist_ts;
 
   LogFlusher(int flusher_id):flusher_id(flusher_id) {
-    log_start_ptr = (void *)((uint64_t)pstm_nvram_logs_ptr + flusher_id * PAGE_SIZE);
+    log_start_ptr = (void *)((uint64_t)pstm_nvram_logs_ptr + flusher_id * log_area_size);
     tx_count = 0;
     log_count = 0;
     last_collect_ts = 0;
@@ -86,8 +87,9 @@ class LogFlusher {
 
   inline void* gen_plog_ptr(uint64_t offset) {
     // return (void *)((offset / PAGE_SIZE) * flusher_count * PAGE_SIZE + offset % PAGE_SIZE + (uint64_t)log_start_ptr);
-    if (flusher_count == 1) return ptr_add(log_start_ptr, offset);
-    return (void *)((((offset>>12)%log_page_num) * (flusher_count << 12)) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
+    // if (flusher_count == 1) return ptr_add(log_start_ptr, offset);
+    // return (void *)((((offset>>12)%log_page_num) * (flusher_count << 12)) + (offset&(PAGE_SIZE-1)) + (uint64_t)log_start_ptr);
+    return ptr_add(log_start_ptr, offset % log_area_size);
   }
 
   inline void* ptr_add(void* ptr, uint64_t offset) {
@@ -101,26 +103,50 @@ class LogFlusher {
     else return false;
   }
 
+  uint64_t get_log_offset(uint64_t ts) {
+    uint64_t start_off = last_persist_offset;
+    uint64_t start_ts, log_count;
+    if ((start_ts = last_persist_ts) >= ts) return UINT64_MAX;
+    while (start_ts < ts) {
+      log_count = *((uint64_t *)(gen_plog_ptr(start_off)) + 1);
+      start_off += log_count * 16 + 16;
+      start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
+    }
+    if (start_ts == ts) return start_off;
+    else return UINT64_MAX;
+  }
+
   void write_entry(void *entry, uint64_t size) {
     // block until log_space avaliable
     while (flush_offset - replay_offset.load() > log_area_size - size);
 
     #ifndef USE_NTSTORE
     if (size != 0) {
-      uint64_t step_size = PAGE_SIZE - (flush_offset & (PAGE_SIZE - 1));
+      // uint64_t step_size = PAGE_SIZE - (flush_offset & (PAGE_SIZE - 1));
 
-      while (size >= step_size) {
-        memcpy(gen_plog_ptr(flush_offset), entry, step_size);
-        entry = ptr_add(entry, step_size);
-        flush_offset += step_size;
+      // while (size >= step_size) {
+      //   memcpy(gen_plog_ptr(flush_offset), entry, step_size);
+      //   entry = ptr_add(entry, step_size);
+      //   flush_offset += step_size;
         
-        size -= step_size;
-        step_size = PAGE_SIZE;
-      }
-      if (size > 0) {
+      //   size -= step_size;
+      //   step_size = PAGE_SIZE;
+      // }
+      // if (size > 0) {
+      //   memcpy(gen_plog_ptr(flush_offset), entry, size);
+      //   flush_offset += size;
+      // }
+      assert(size <= log_area_size);
+      if (flush_offset % log_area_size + size <= log_area_size) {
         memcpy(gen_plog_ptr(flush_offset), entry, size);
-        flush_offset += size;
       }
+      else {
+        memcpy(gen_plog_ptr(flush_offset), entry, log_area_size - flush_offset % log_area_size);
+        size -= log_area_size - flush_offset % log_area_size;
+        entry = ptr_add(entry, log_area_size - flush_offset % log_area_size);
+        memcpy(gen_plog_ptr(flush_offset), entry, size);
+      }
+      flush_offset += size;
     }
     #else
     if (size != 0) {
@@ -152,24 +178,41 @@ class LogFlusher {
     #endif
   }
 
+  uint64_t flush_tx(uint64_t offset) {
+    uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1);
+    for (size_t i = 0; i < log_count; i ++) {
+      uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
+      // dep chain
+      if (lock_val & 0x1) {
+        uint64_t dep_ts = lock_val >> 9;
+        int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
+        if (dep_thread_id != flusher_id && flushers[flusher_id]->last_persist_ts < dep_ts) {
+          uint64_t dep_offset = flushers[flusher_id]->get_log_offset(dep_ts);
+          if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
+        }
+      }
+    }
+    uint64_t flush_size = (log_count+1)*16;
+    assert(flush_size <= log_area_size);
+    if (offset % log_area_size + flush_size <= log_area_size) {
+      FLUSH_BLOCK(gen_plog_ptr(offset), gen_plog_ptr(offset+flush_size));
+    }
+    else {
+      FLUSH_BLOCK(gen_plog_ptr(offset), ptr_add(log_start_ptr, log_area_size));
+      flush_size -= log_area_size - offset%log_area_size;
+      FLUSH_BLOCK(log_start_ptr, gen_plog_ptr(flush_size));
+    }
+
+    return offset+flush_size;
+  }
+  
   void flush_entry() {
     uint64_t flush_left = flush_offset - last_persist_offset;
     uint64_t flush_off = last_persist_offset;
     if (flush_left != 0) {
       #ifndef USE_NTSTORE
-      uint64_t step_size = PAGE_SIZE - (last_persist_offset & (PAGE_SIZE - 1));
-
-      while (flush_left >= step_size) {
-        void *flush_ptr = gen_plog_ptr(flush_off);
-        FLUSH_BLOCK(flush_ptr, ptr_add(flush_ptr, step_size));
-        flush_off += step_size;
-        
-        flush_left -= step_size;
-        step_size = PAGE_SIZE;
-      }
-      if (flush_left > 0) {
-        void *flush_ptr = gen_plog_ptr(flush_off);
-        FLUSH_BLOCK(flush_ptr, ptr_add(flush_ptr, flush_left));
+      while (flush_off < flush_offset) {
+        flush_off = flush_tx(flush_off);
       }
       #endif
       FENCE_PREV_FLUSHES();
@@ -775,15 +818,16 @@ uint64_t LogFlusher::log_area_size = 0;
 uint64_t LogFlusher::log_page_num = 0;
 
 void init_logers() {
+  LogFlusher::log_area_size = PSTM_LOG_SIZE / PAGE_SIZE / flusher_count * PAGE_SIZE;
+  LogFlusher::log_page_num = LogFlusher::log_area_size / PAGE_SIZE; 
   log_flushers = (LogFlusher **)malloc(sizeof(LogFlusher *) * flusher_count);
   for (int i = 0; i < flusher_count; i ++) {
     if (FLUSHER_TYPE == 0) log_flushers[i] = new LogFlusher(i);
     else if (FLUSHER_TYPE == 1) log_flushers[i] = new CombinedLogFlusher(i);
   }
+  LogFlusher::flushers = log_flushers;
   log_replayer = new LogReplayer(log_flushers);
 
-  LogFlusher::log_area_size = PSTM_LOG_SIZE / flusher_count;
-  LogFlusher::log_page_num = LogFlusher::log_area_size / PAGE_SIZE; 
 }
 
 void create_log_threads() {
@@ -858,6 +902,11 @@ void pstm_plog_end() {
     FLUSH_CL(&log_root->crash);
     FENCE_PREV_FLUSHES();
   }
+}
+
+uint64_t pstm_plog_trace_dep(int thread_id, uint64_t ts) {
+  if (log_flushers[thread_id]->last_persist_ts >= ts) return UINT64_MAX;
+  else return log_flushers[thread_id]->get_log_offset(ts);
 }
 
 /*

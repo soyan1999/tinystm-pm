@@ -131,3 +131,13 @@ void pstm_after_tm_exit() {
   //   (double)tot_pstm_size_flush/(double)tot_pstm_nb_flush,
   //   (double)tot_pstm_nb_force_flush/(double)tot_pstm_nb_flush);
 }
+
+int get_thread_id() {
+  return thread_id;
+}
+
+void pstm_trace_dep(uint64_t lock_val) {
+  #ifdef TRACE_DEP
+  pstm_vlog_trace_dep(lock_val);
+  #endif
+}

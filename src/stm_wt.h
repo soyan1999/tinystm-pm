@@ -71,6 +71,7 @@ stm_wt_validate(stm_tx_t *tx)
         /* Other version: cannot validate */
         return 0;
       }
+      pstm_trace_dep(l);
       /* Same version: OK */
     }
   }
