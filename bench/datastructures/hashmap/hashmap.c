@@ -241,7 +241,8 @@ void *test(void *data)
 
   TM_THREAD_ENTER();
 
-  unsigned int mySeed = seed;
+  int thread_id = thread_getId();
+  unsigned int mySeed = seed^(time(NULL)/(thread_id+1));
 
   long myOps = operations / nb_threads;
   long val = -1;

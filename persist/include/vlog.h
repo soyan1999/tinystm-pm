@@ -33,7 +33,8 @@
 
 typedef struct pstm_vlog {
   uint64_t ts;
-  uint64_t log_count;
+  uint32_t log_count;
+  uint32_t dep_count;
   uint64_t thread_id;
   std::atomic_uint64_t state;
   uint64_t *buffer;

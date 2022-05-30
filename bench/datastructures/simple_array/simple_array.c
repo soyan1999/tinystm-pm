@@ -25,7 +25,7 @@
  * ################################################################### */
 
 #include "tm.h"
-#include "rbtree.h"
+// #include "hashtable.h"
 
 // typedef struct Node_t
 // {
@@ -40,9 +40,9 @@
 
 static volatile int stop;
 
-rbtree_t *set = NULL;
+uint64_t **set = NULL;
 
-// #define N_BUCKETS 1024
+#define N_BUCKETS 1024
 // List* bucket[N_BUCKETS];
 
 // TM_CALLABLE
@@ -174,61 +174,55 @@ rbtree_t *set = NULL;
 //     return (*(long*)(a->firstPtr) - *(long*)(b->firstPtr));
 // }
 
-static long
-compare (const void* a, const void* b)
-{
-    return (*((const long*)a) - *((const long*)b));
-}
+// void set_alloc() {
+//   set = hashtable_alloc(N_BUCKETS,hash,comparePairs,-1,-1);
+// }
 
-void set_alloc() {
-  set = rbtree_alloc(&compare);
-}
+// void set_free() {
+//   hashtable_free(set);
+// }
 
-void set_free() {
-  rbtree_free(set);
-}
+// long set_add_seq(long val) {
+// 	long *data = S_MALLOC(sizeof(long));
+//   *data = val;
+//   hashtable_insert(set,data,data);
+//   return 1;
+// }
 
-long set_add_seq(long val) {
-	long *data = S_MALLOC(sizeof(long));
-  *data = val;
-  rbtree_insert(set,data,data);
-  return 1;
-}
+// long set_add(TM_ARGDECL long val)
+// {
+//     int res = 0;
 
-long set_add(TM_ARGDECL long val)
-{
-    int res = 0;
+//     TM_BEGIN();
+//     long *data = S_MALLOC(sizeof(long));
+//     TM_SHARED_WRITE(*data,val);
+//     res = TMhashtable_insert(set,data,data);
+//     TM_END();
 
-    TM_BEGIN();
-    long *data = S_MALLOC(sizeof(long));
-    TM_SHARED_WRITE(*data,val);
-    res = TMrbtree_insert(set,data,data);
-    TM_END();
+//     return res;
+// }
 
-    return res;
-}
+// int set_remove(TM_ARGDECL long val)
+// {
+//     int res = 0;
 
-int set_remove(TM_ARGDECL long val)
-{
-    int res = 0;
+//     TM_BEGIN();
+//     res = TMhashtable_remove(set,&val);
+//     TM_END();
 
-    TM_BEGIN();
-    res = TMrbtree_delete(set,&val);
-    TM_END();
+//     return res;
+// }
 
-    return res;
-}
+// long set_contains(TM_ARGDECL long  val)
+// {
+//     long res = 0;
 
-long set_contains(TM_ARGDECL long  val)
-{
-    long res = 0;
+//     TM_BEGIN();
+//     res = TMhashtable_containsKey(set,&val);
+//     TM_END();
 
-    TM_BEGIN();
-    res = TMrbtree_contains(set,&val);
-    TM_END();
-
-    return res;
-}
+//     return res;
+// }
 
 
   long range;
@@ -252,27 +246,12 @@ void *test(void *data)
 
   long myOps = operations / nb_threads;
   long val = -1;
-  int op;
+  
 
   while (myOps > 0) {
-    op = rand_r(&mySeed) % 100;
-    if (op < update) {
-      if (val == -1) {
-        /* Add random value */  
-        val = (rand_r(&mySeed) % range) + 1;
-        if(set_add(TM_ARG val) != 0) {
-          val = -1;
-        }
-      } else {
-        /* Remove random value */
-        set_remove(TM_ARG  val);
-        val = -1;
-      }
-    } else {
-      /* Look for random value */
-      val = (rand_r(&mySeed) % range) + 1;
-      set_contains(TM_ARG val);
-    }
+    int bt = rand_r(&mySeed) % N_BUCKETS;
+    uint64_t value = rand_r(&mySeed);
+    TM_SHARED_WRITE(set[thread_id][bt], value);
 
     myOps--;
   }
@@ -391,13 +370,13 @@ MAIN(argc, argv) {
   //   bucket[i]->sentinel->m_next = NULL;
   // }
 
-  set_alloc();
+  // set_alloc();
 
   /* Populate set */
-  printf("Adding %d entries to set\n", initial);
-  for (i = 0; i < initial; i++) {
-    val = (rand() % range) + 1;
-    set_add_seq(val);
+  printf("Init set\n");
+  set = (uint64_t**)malloc(sizeof(uint64_t*) * nb_threads);
+  for (int i = 0; i < nb_threads; i ++) {
+    set[i] = S_MALLOC(N_BUCKETS*sizeof(uint64_t));
   }
 
   seed = rand();
