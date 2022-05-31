@@ -22,6 +22,7 @@ void pstm_vlog_init(int thread_num) {
       vlog->buffer = (uint64_t*)malloc(VLOG_BUFEER_SIZE);
       vlog->ts = 0;
       vlog->log_count = 0;
+      vlog->dep_count = 0;
       vlog->thread_id = i;
       free_vlog_collecters[i]->put(vlog);
     }
@@ -50,6 +51,7 @@ void pstm_vlog_begin() {
     thread_vlog_entry = free_vlog_collecters[thread_id]->get();
   }
   thread_vlog_entry->log_count = 0;
+  thread_vlog_entry->dep_count = 0;
   thread_vlog_entry->state.store(VLOG_INVAILD);
 }
 
@@ -94,13 +96,16 @@ void pstm_vlog_after_gen_ts(uint64_t ts) {
 void pstm_vlog_abort() {
   if (FLUSHER_TYPE == 0 || thread_vlog_entry->state != VLOG_PRE_COMMIT || thread_vlog_entry->log_count == 0) {
     thread_vlog_entry->log_count = 0;
+    thread_vlog_entry->dep_count = 0;
     thread_vlog_entry->state.store(VLOG_INVAILD);
   }
   else {
     thread_vlog_entry->log_count = 0;
+    thread_vlog_entry->dep_count = 0;
     thread_vlog_entry->state.store(VLOG_ABORT);
     thread_vlog_entry = free_vlog_collecters[thread_id]->get();
     thread_vlog_entry->log_count = 0;
+    thread_vlog_entry->dep_count = 0;
     thread_vlog_entry->state.store(VLOG_INVAILD);
   }
 
@@ -135,7 +140,7 @@ void pstm_vlog_trace_dep(uint64_t lock_val) {
   uint64_t dep_ts = lock_val >> 9;
   uint64_t dep_offset = pstm_plog_trace_dep(dep_thread_id, dep_ts);
   if (dep_offset != UINT64_MAX) {
-    thread_vlog_entry->buffer[thread_vlog_entry->log_count] = lock_val | 0x1;
-    thread_vlog_entry->buffer[thread_vlog_entry->log_count++] = dep_offset;
+    thread_vlog_entry->buffer[thread_vlog_entry->log_count+thread_vlog_entry->dep_count] = lock_val | 0x1;
+    thread_vlog_entry->buffer[thread_vlog_entry->dep_count++] = dep_offset;
   }
 }

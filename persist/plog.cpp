@@ -105,11 +105,11 @@ class LogFlusher {
 
   uint64_t get_log_offset(uint64_t ts) {
     uint64_t start_off = last_persist_offset;
-    uint64_t start_ts, log_count;
+    uint64_t start_ts, log_count, dep_count;
     if ((start_ts = last_persist_ts) >= ts) return UINT64_MAX;
     while (start_ts < ts) {
       log_count = *((uint64_t *)(gen_plog_ptr(start_off)) + 1);
-      start_off += log_count * 16 + 16;
+      start_off += ((log_count|UINT32_MAX)+(log_count>>32)) * 16 + 16;
       start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
     }
     if (start_ts == ts) return start_off;
@@ -179,8 +179,10 @@ class LogFlusher {
   }
 
   uint64_t flush_tx(uint64_t offset) {
-    uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1);
-    for (size_t i = 0; i < log_count; i ++) {
+    uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1), dep_count;
+    dep_count = log_count >> 32;
+    log_count = log_count|UINT32_MAX;
+    for (size_t i = log_count; i < log_count+dep_count; i ++) {
       uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
       // dep chain
       if (lock_val & 0x1) {
@@ -192,7 +194,7 @@ class LogFlusher {
         }
       }
     }
-    uint64_t flush_size = (log_count+1)*16;
+    uint64_t flush_size = (log_count+dep_count+1)*16;
     assert(flush_size <= log_area_size);
     if (offset % log_area_size + flush_size <= log_area_size) {
       FLUSH_BLOCK(gen_plog_ptr(offset), gen_plog_ptr(offset+flush_size));
@@ -254,7 +256,7 @@ class LogFlusher {
   void do_flush_vlog(pstm_vlog_t *vlog) {
     if (!wait_vlog_committed(vlog)) return;
     write_entry(&(vlog->ts), 2*sizeof(uint64_t));
-    write_entry(vlog->buffer,vlog->log_count*2*sizeof(uint64_t));
+    write_entry(vlog->buffer,(vlog->log_count+vlog->dep_count)*2*sizeof(uint64_t));
     tx_count ++;
     if (tx_count >= GROUP_SIZE) {
       flush_entry();
