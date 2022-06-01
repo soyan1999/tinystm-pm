@@ -104,10 +104,12 @@ class LogFlusher {
   }
 
   uint64_t get_log_offset(uint64_t ts) {
-    uint64_t start_off = last_persist_offset;
+    uint64_t start_off;
     uint64_t start_ts, log_count, dep_count;
-    if ((start_ts = last_persist_ts) >= ts) return UINT64_MAX;
-    while (start_ts < ts) {
+    if (last_persist_ts >= ts) return UINT64_MAX;
+    start_off = last_persist_offset;
+    start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
+    while (start_ts < ts && last_persist_ts < ts) {
       log_count = *((uint64_t *)(gen_plog_ptr(start_off)) + 1);
       start_off += ((log_count&UINT32_MAX)+(log_count>>32)) * 16 + 16;
       start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));

@@ -136,11 +136,14 @@ void pstm_vlog_free() {
 
 void pstm_vlog_trace_dep(uint64_t lock_val) {
   int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
+  if (!(dep_thread_id & 1)) return;
+  dep_thread_id >>= 1;
   if (dep_thread_id == thread_id) return;
   uint64_t dep_ts = lock_val >> 9;
+  if (dep_ts == 0) return;
   uint64_t dep_offset = pstm_plog_trace_dep(dep_thread_id, dep_ts);
   if (dep_offset != UINT64_MAX) {
     thread_vlog_entry->buffer[thread_vlog_entry->log_count+thread_vlog_entry->dep_count] = lock_val | 0x1;
-    thread_vlog_entry->buffer[thread_vlog_entry->dep_count++] = dep_offset;
+    thread_vlog_entry->buffer[thread_vlog_entry->log_count+thread_vlog_entry->dep_count++] = dep_offset;
   }
 }
