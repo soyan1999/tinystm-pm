@@ -829,7 +829,7 @@ stm_unit_write(volatile stm_word_t *addr, stm_word_t value, stm_word_t mask, stm
   if (timestamp != NULL)
     *timestamp = l;
   /* Make sure that lock release becomes visible */
-  ATOMIC_STORE_REL(lock, LOCK_SET_TIMESTAMP(l));
+  ATOMIC_STORE_REL(lock, LOCK_SET_TIMESTAMP(l,0));
   if (unlikely(l >= VERSION_MAX)) {
     /* Block all transactions and reset clock (current thread is not in active transaction) */
     stm_quiesce_barrier(NULL, rollover_clock, NULL);
@@ -1151,7 +1151,7 @@ hytm_commit(TXPARAM)
   w = tx->w_set.entries;
   for (i = tx->w_set.nb_entries; i > 0; i--, w++) {
     /* XXX Maybe no duplicate entries can improve perf? */
-    asf_lock_store64((long unsigned int *)w->lock, LOCK_SET_TIMESTAMP(t));
+    asf_lock_store64((long unsigned int *)w->lock, LOCK_SET_TIMESTAMP(t,0));
   }
   /* Commit the hytm transaction */
   asf_commit();

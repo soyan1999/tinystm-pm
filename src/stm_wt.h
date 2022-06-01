@@ -138,7 +138,7 @@ stm_wt_rollback(stm_tx_t *tx)
         /* Get new version (may exceed VERSION_MAX by up to MAX_THREADS) */
         t = FETCH_INC_CLOCK + 1;
       }
-      ATOMIC_STORE_REL(w->lock, LOCK_SET_TIMESTAMP(t));
+      ATOMIC_STORE_REL(w->lock, LOCK_SET_TIMESTAMP(t,0));
     } else {
       /* Use new incarnation number */
       ATOMIC_STORE_REL(w->lock, LOCK_UPD_INCARNATION(w->version, j));
@@ -574,7 +574,7 @@ stm_wt_commit(stm_tx_t *tx)
   for (i = tx->w_set.nb_entries; i > 0; i--, w++) {
     if (w->next == NULL) {
       /* No need for CAS (can only be modified by owner transaction) */
-      ATOMIC_STORE(w->lock, LOCK_SET_TIMESTAMP(t));
+      ATOMIC_STORE(w->lock, LOCK_SET_TIMESTAMP(t,(uint64_t)w->addr));
     }
   }
   /* Make sure that all lock releases become visible */

@@ -141,3 +141,7 @@ void pstm_trace_dep(uint64_t lock_val) {
   pstm_vlog_trace_dep(lock_val);
   #endif
 }
+
+int is_pmem(uint64_t addr) {
+  return IS_PMEM(addr);
+}

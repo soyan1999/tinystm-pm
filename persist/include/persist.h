@@ -31,6 +31,7 @@ void pstm_before_thread_exit();                           // free volatile log
 void pstm_after_tm_exit();                                // free collecter nvm and shadowdram, set crash value
 int get_thread_id();
 void pstm_trace_dep(uint64_t lock_val);
+int is_pmem(uint64_t addr);
 
 
 
