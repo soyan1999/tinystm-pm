@@ -109,7 +109,7 @@ class LogFlusher {
     if ((start_ts = last_persist_ts) >= ts) return UINT64_MAX;
     while (start_ts < ts) {
       log_count = *((uint64_t *)(gen_plog_ptr(start_off)) + 1);
-      start_off += ((log_count|UINT32_MAX)+(log_count>>32)) * 16 + 16;
+      start_off += ((log_count&UINT32_MAX)+(log_count>>32)) * 16 + 16;
       start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
     }
     if (start_ts == ts) return start_off;
@@ -181,7 +181,7 @@ class LogFlusher {
   uint64_t flush_tx(uint64_t offset) {
     uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1), dep_count;
     dep_count = log_count >> 32;
-    log_count = log_count|UINT32_MAX;
+    log_count = log_count&UINT32_MAX;
     for (size_t i = log_count; i < log_count+dep_count; i ++) {
       uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
       // dep chain
@@ -213,9 +213,22 @@ class LogFlusher {
     uint64_t flush_off = last_persist_offset;
     if (flush_left != 0) {
       #ifndef USE_NTSTORE
+      #ifdef TRACE_DEP
       while (flush_off < flush_offset) {
         flush_off = flush_tx(flush_off);
       }
+      #else
+      uint64_t flush_size = flush_left;
+      assert(flush_size <= log_area_size);
+      if (flush_offset % log_area_size + flush_size <= log_area_size) {
+        FLUSH_BLOCK(gen_plog_ptr(flush_offset), gen_plog_ptr(flush_offset+flush_size));
+      }
+      else {
+        FLUSH_BLOCK(gen_plog_ptr(flush_offset), ptr_add(log_start_ptr, log_area_size));
+        flush_size -= log_area_size - flush_offset%log_area_size;
+        FLUSH_BLOCK(log_start_ptr, gen_plog_ptr(flush_size));
+      }
+      #endif
       #endif
       FENCE_PREV_FLUSHES();
       log_root_ptr->log_end_off = flush_offset;
