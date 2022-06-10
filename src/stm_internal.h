@@ -211,9 +211,9 @@ enum {                                  /* Transaction status */
 # define LOCK_UPGRADE(l)                (l | WRITE_MASK)
 #endif /* CM == CM_MODULAR */
 #define LOCK_GET_THREAD_ID(l)           ((l & THREAD_ID_MASK) >> (OWNED_BITS + INCARNATION_BITS + 1))
-#define LOCK_SET_THREAD_ID(n)           (n << (OWNED_BITS + INCARNATION_BITS + 1))
+#define LOCK_SET_THREAD_ID(n,a)          (((n << 1) | is_pmem(a)) << (OWNED_BITS + INCARNATION_BITS))
 #define LOCK_GET_TIMESTAMP(l)           (l >> (LOCK_BITS))
-#define LOCK_SET_TIMESTAMP(t,a)         ((t << (LOCK_BITS)) | LOCK_SET_THREAD_ID(get_thread_id()) | is_pmem(a))
+#define LOCK_SET_TIMESTAMP(t,a)         ((t << (LOCK_BITS)) | LOCK_SET_THREAD_ID(get_thread_id(),a))
 #define LOCK_GET_INCARNATION(l)         ((l & INCARNATION_MASK) >> OWNED_BITS)
 #define LOCK_SET_INCARNATION(i)         (i << OWNED_BITS)   /* OWNED bit not set */
 #define LOCK_UPD_INCARNATION(l, i)      ((l & ~(stm_word_t)(INCARNATION_MASK | OWNED_MASK)) | LOCK_SET_INCARNATION(i))

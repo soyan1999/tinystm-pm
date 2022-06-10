@@ -20,8 +20,9 @@
 #define ENABLE_COMBINE
 #define ORDER_COLLECT
 // #define USE_NTSTORE
-#define GROUP_SIZE UINT64_MAX //UINT64_MAX
+#define GROUP_SIZE 20 //UINT64_MAX
 #define TRACE_DEP
+#define TRACE_DEP_1
 
 // #ifdef __cplusplus
 // extern "C" {

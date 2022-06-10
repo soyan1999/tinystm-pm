@@ -187,6 +187,7 @@ class LogFlusher {
     for (size_t i = log_count; i < log_count+dep_count; i ++) {
       uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
       // dep chain
+      #ifdef TRACE_DEP_1
       if (lock_val & 0x1) {
         uint64_t dep_ts = lock_val >> 9;
         int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
@@ -195,6 +196,7 @@ class LogFlusher {
           if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
         }
       }
+      #endif
     }
     uint64_t flush_size = (log_count+dep_count+1)*16;
     assert(flush_size <= log_area_size);

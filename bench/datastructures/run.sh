@@ -2,14 +2,16 @@
 
 bench=(
   "hashmap"
-  "btree"
-  "rbtree_"
+  # "btree"
+  # "rbtree_"
+  # "simple_array"
 )
 
 parameter=(
   "-u 100 -d 10000000 -n"
-  "-u 100 -d 10000000 -n"
-  "-u 100 -d 10000000 -n"
+  # "-u 100 -d 10000000 -n"
+  # "-u 100 -d 10000000 -n"
+  # "-u 100 -d 100000000 -n"
   )
 
 # scheme=(

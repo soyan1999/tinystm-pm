@@ -2,28 +2,28 @@
 
 bench=(
   # "bayes"
-  "genome"
+  # "genome"
   "intruder"
   # "kmeans" #low contention
   # "kmeans"
-  "labyrinth"
+  # "labyrinth"
   "ssca2"
-  "vacation" #low contention
-  "vacation"
-  "yada"
+  # "vacation" #low contention
+  # "vacation"
+  # "yada"
 )
 
 parameter=(
   # "-v32 -r4096 -n10 -p40 -i2 -e8 -s1 -t"
-  "-g16384 -s64 -n16777216 -t"
+  # "-g16384 -s64 -n16777216 -t"
   "-a10 -l128 -n262144 -s1 -t"
   # "-m40 -n40 -t0.00001 -i inputs/random-n65536-d32-c16 -p"
   # "-m15 -n15 -t0.00001 -i inputs/random-n65536-d32-c16 -p"
-  "-i inputs/random-x512-y512-z7-n512 -t"
+  # "-i inputs/random-x512-y512-z7-n512 -t"
   "-s20 -i1.0 -u1.0 -l3 -p3 -t"
-  "-n2 -q90 -u98 -r1048576 -t4194304 -c"
-  "-n4 -q60 -u90 -r1048576 -t4194304 -c"
-  "-a15 -i inputs/ttimeu1000000.2 -t"
+  # "-n2 -q90 -u98 -r1048576 -t4194304 -c"
+  # "-n4 -q60 -u90 -r1048576 -t4194304 -c"
+  # "-a15 -i inputs/ttimeu1000000.2 -t"
   )
 
 # scheme=(

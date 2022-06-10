@@ -251,7 +251,9 @@ void *test(void *data)
   while (myOps > 0) {
     int bt = rand_r(&mySeed) % N_BUCKETS;
     uint64_t value = rand_r(&mySeed);
+    TM_BEGIN();
     TM_SHARED_WRITE(set[thread_id][bt], value);
+    TM_END();
 
     myOps--;
   }
