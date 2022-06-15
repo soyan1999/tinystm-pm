@@ -229,7 +229,7 @@ class LogFlusher {
       }
       #ifdef TRACE_DEP
       if (thread_vlog_entry->group_dep_count > 0) {
-        for (int i = 0, j = 0; i < thread_vlog_entry->group_dep_count; i++) {
+        for (int i = 0, j = 0; i < (int)thread_vlog_entry->group_dep_count; i++) {
           if (j == 0) {
             j = thread_vlog_entry->group_dep_buffer[i*2+1];
           }

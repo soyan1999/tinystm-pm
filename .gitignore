@@ -35,6 +35,7 @@
 bench/datastructures/hashmap/hashmap
 bench/datastructures/btree/btree
 bench/datastructures/rbtree_/rbtree_
+bench/datastructures/simple_array/simple_array
 bench/tpcc/code/tpcc
 
 bench/datastructures/Defines.common.mk

@@ -147,7 +147,7 @@ void pstm_vlog_trace_dep(uint64_t lock_val) {
   if (dep_offset != UINT64_MAX) {
     assert(thread_vlog_entry->group_dep_count < DEP_MAX_NUM);
     if (thread_vlog_entry->dep_count == 0) {
-      thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = thread_vlog_entry->ts | (1<<63);
+      thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = thread_vlog_entry->ts | (1UL<<63);
       thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2+1] = 0;
     }
     thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = lock_val | 0x1;
