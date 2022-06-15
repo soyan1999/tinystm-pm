@@ -20,6 +20,8 @@ void pstm_vlog_init(int thread_num) {
     for (int j = 0; j < FREE_VLOG_PER_THREAD; j ++) {
       pstm_vlog_t *vlog = (pstm_vlog_t *)malloc(sizeof(pstm_vlog_t));
       vlog->buffer = (uint64_t*)malloc(VLOG_BUFEER_SIZE);
+      vlog->group_dep_buffer = (uint64_t*)malloc(DEP_MAX_NUM * sizeof(uint64_t)*2);
+      vlog->group_dep_count = 0;
       vlog->ts = 0;
       vlog->log_count = 0;
       vlog->dep_count = 0;
@@ -143,7 +145,16 @@ void pstm_vlog_trace_dep(uint64_t lock_val) {
   if (dep_ts == 0) return;
   uint64_t dep_offset = pstm_plog_trace_dep(dep_thread_id, dep_ts);
   if (dep_offset != UINT64_MAX) {
-    thread_vlog_entry->buffer[thread_vlog_entry->log_count+thread_vlog_entry->dep_count] = lock_val | 0x1;
-    thread_vlog_entry->buffer[thread_vlog_entry->log_count+thread_vlog_entry->dep_count++] = dep_offset;
+    assert(thread_vlog_entry->group_dep_count < DEP_MAX_NUM);
+    if (thread_vlog_entry->dep_count == 0) {
+      thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = thread_vlog_entry->ts | (1<<63);
+      thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2+1] = 0;
+    }
+    thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = lock_val | 0x1;
+    thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2+1] = dep_offset;
+    thread_vlog_entry->group_dep_count++;
+    thread_vlog_entry->dep_count++;
+
+    thread_vlog_entry->group_dep_buffer[(thread_vlog_entry->group_dep_count-thread_vlog_entry->dep_count)*2+1] = thread_vlog_entry->dep_count;
   }
 }

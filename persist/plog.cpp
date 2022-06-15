@@ -111,7 +111,7 @@ class LogFlusher {
     start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
     while (start_ts < ts && last_persist_ts < ts) {
       log_count = *((uint64_t *)(gen_plog_ptr(start_off)) + 1);
-      start_off += ((log_count&UINT32_MAX)+(log_count>>32)) * 16 + 16;
+      start_off += (log_count&UINT32_MAX) * 16 + 16;
       start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
     }
     if (start_ts == ts) return start_off;
@@ -184,21 +184,21 @@ class LogFlusher {
     uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1), dep_count;
     dep_count = log_count >> 32;
     log_count = log_count&UINT32_MAX;
-    for (size_t i = log_count; i < log_count+dep_count; i ++) {
-      uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
-      // dep chain
-      #ifdef TRACE_DEP_1
-      if (lock_val & 0x1) {
-        uint64_t dep_ts = lock_val >> 9;
-        int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
-        if (dep_thread_id != flusher_id && flushers[flusher_id]->last_persist_ts < dep_ts) {
-          uint64_t dep_offset = flushers[flusher_id]->get_log_offset(dep_ts);
-          if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
-        }
-      }
-      #endif
-    }
-    uint64_t flush_size = (log_count+dep_count+1)*16;
+    // for (size_t i = log_count; i < log_count+dep_count; i ++) {
+    //   uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
+    //   // dep chain
+    //   #ifdef TRACE_DEP_1
+    //   if (lock_val & 0x1) {
+    //     uint64_t dep_ts = lock_val >> 9;
+    //     int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
+    //     if (dep_thread_id != flusher_id && flushers[flusher_id]->last_persist_ts < dep_ts) {
+    //       uint64_t dep_offset = flushers[flusher_id]->get_log_offset(dep_ts);
+    //       if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
+    //     }
+    //   }
+    //   #endif
+    // }
+    uint64_t flush_size = (log_count+1)*16;
     assert(flush_size <= log_area_size);
     if (offset % log_area_size + flush_size <= log_area_size) {
       FLUSH_BLOCK(gen_plog_ptr(offset), gen_plog_ptr(offset+flush_size));
@@ -217,11 +217,6 @@ class LogFlusher {
     uint64_t flush_off = last_persist_offset;
     if (flush_left != 0) {
       #ifndef USE_NTSTORE
-      #ifdef TRACE_DEP
-      while (flush_off < flush_offset) {
-        flush_off = flush_tx(flush_off);
-      }
-      #else
       uint64_t flush_size = flush_left;
       assert(flush_size <= log_area_size);
       if (flush_offset % log_area_size + flush_size <= log_area_size) {
@@ -231,6 +226,23 @@ class LogFlusher {
         FLUSH_BLOCK(gen_plog_ptr(flush_offset), ptr_add(log_start_ptr, log_area_size));
         flush_size -= log_area_size - flush_offset%log_area_size;
         FLUSH_BLOCK(log_start_ptr, gen_plog_ptr(flush_size));
+      }
+      #ifdef TRACE_DEP
+      if (thread_vlog_entry->group_dep_count > 0) {
+        for (int i = 0, j = 0; i < thread_vlog_entry->group_dep_count; i++) {
+          if (j == 0) {
+            j = thread_vlog_entry->group_dep_buffer[i*2+1];
+          }
+          else {
+            uint64_t lock_val = thread_vlog_entry->group_dep_buffer[i*2], dep_offset = thread_vlog_entry->group_dep_buffer[i*2+1], dep_ts = lock_val >> 9;
+            int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
+            if (dep_thread_id != flusher_id && flushers[flusher_id]->last_persist_ts < dep_ts) {
+              uint64_t dep_offset = flushers[flusher_id]->get_log_offset(dep_ts);
+              if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
+            }
+            j--;
+          }
+        }
       }
       #endif
       #endif
@@ -273,10 +285,16 @@ class LogFlusher {
   void do_flush_vlog(pstm_vlog_t *vlog) {
     if (!wait_vlog_committed(vlog)) return;
     write_entry(&(vlog->ts), 2*sizeof(uint64_t));
-    write_entry(vlog->buffer,(vlog->log_count+vlog->dep_count)*2*sizeof(uint64_t));
+    write_entry(vlog->buffer,vlog->log_count*2*sizeof(uint64_t));
     tx_count ++;
     if (tx_count >= GROUP_SIZE) {
+      #ifdef DEP_TRACE
+      if (vlog->group_dep_count > 0) {
+        write_entry(vlog->group_dep_buffer, vlog->group_dep_count*2*sizeof(uint64_t));
+      }
+      #endif
       flush_entry();
+      vlog->group_dep_count = 0;
       tx_count = 0;
     }
 

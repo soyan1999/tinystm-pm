@@ -17,6 +17,8 @@
 #define VLOG_COLLECTER_CAPACITY 20
 #define VLOG_FREE_CAPACITY 30
 
+#define DEP_MAX_NUM (1024)
+
 #define FREE_VLOG_PER_THREAD 10
 #define READY_VLOG_PER_FLUSHER 100
 
@@ -37,6 +39,8 @@ typedef struct pstm_vlog {
   uint32_t dep_count;
   uint64_t thread_id;
   std::atomic_uint64_t state;
+  uint64_t group_dep_count;
+  uint64_t *group_dep_buffer;
   uint64_t *buffer;
 } pstm_vlog_t;
 
