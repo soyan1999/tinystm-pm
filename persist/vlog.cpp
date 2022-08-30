@@ -20,11 +20,9 @@ void pstm_vlog_init(int thread_num) {
     for (int j = 0; j < FREE_VLOG_PER_THREAD; j ++) {
       pstm_vlog_t *vlog = (pstm_vlog_t *)malloc(sizeof(pstm_vlog_t));
       vlog->buffer = (uint64_t*)malloc(VLOG_BUFEER_SIZE);
-      vlog->group_dep_buffer = (uint64_t*)malloc(DEP_MAX_NUM * sizeof(uint64_t)*2);
-      vlog->group_dep_count = 0;
+      vlog->group_tx_count = 0;
       vlog->ts = 0;
       vlog->log_count = 0;
-      vlog->dep_count = 0;
       vlog->thread_id = i;
       free_vlog_collecters[i]->put(vlog);
     }
@@ -52,8 +50,9 @@ void pstm_vlog_begin() {
   if (FLUSHER_TYPE != 0 && thread_vlog_entry == NULL) {
     thread_vlog_entry = free_vlog_collecters[thread_id]->get();
   }
+  thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count].dep_cnt = 0;
   thread_vlog_entry->log_count = 0;
-  thread_vlog_entry->dep_count = 0;
+  thread_vlog_entry->dep_set.clear();
   thread_vlog_entry->state.store(VLOG_INVAILD);
 }
 
@@ -98,23 +97,27 @@ void pstm_vlog_after_gen_ts(uint64_t ts) {
 void pstm_vlog_abort() {
   if (FLUSHER_TYPE == 0 || thread_vlog_entry->state != VLOG_PRE_COMMIT || thread_vlog_entry->log_count == 0) {
     thread_vlog_entry->log_count = 0;
-    thread_vlog_entry->dep_count = 0;
+    thread_vlog_entry->dep_set.clear();
+    thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count].dep_cnt = 0;
     thread_vlog_entry->state.store(VLOG_INVAILD);
   }
   else {
-    thread_vlog_entry->log_count = 0;
-    thread_vlog_entry->dep_count = 0;
-    thread_vlog_entry->state.store(VLOG_ABORT);
-    thread_vlog_entry = free_vlog_collecters[thread_id]->get();
-    thread_vlog_entry->log_count = 0;
-    thread_vlog_entry->dep_count = 0;
-    thread_vlog_entry->state.store(VLOG_INVAILD);
+    // thread_vlog_entry->log_count = 0;
+    // thread_vlog_entry->dep_count = 0;
+    // thread_vlog_entry->dep_offset = 0;
+    // thread_vlog_entry->state.store(VLOG_ABORT);
+    // thread_vlog_entry = free_vlog_collecters[thread_id]->get();
+    // thread_vlog_entry->log_count = 0;
+    // thread_vlog_entry->dep_count = 0;
+    // thread_vlog_entry->dep_offset = 0;
+    // thread_vlog_entry->state.store(VLOG_INVAILD);
   }
 
 } 
 
 void pstm_vlog_commit(uint64_t ts) {
   thread_vlog_entry->state.store(VLOG_COMMITTED);
+  thread_vlog_entry->group_tx_count++;
   #ifdef PDEBUG
   commit_count += thread_vlog_entry->log_count;
   #endif
@@ -143,18 +146,26 @@ void pstm_vlog_trace_dep(uint64_t lock_val) {
   if (dep_thread_id == thread_id) return;
   uint64_t dep_ts = lock_val >> 9;
   if (dep_ts == 0) return;
+  // replace by linear searching?
+  if (thread_vlog_entry->dep_set.find(dep_ts) != thread_vlog_entry->dep_set.end()) return;
   uint64_t dep_offset = pstm_plog_trace_dep(dep_thread_id, dep_ts);
   if (dep_offset != UINT64_MAX) {
-    assert(thread_vlog_entry->group_dep_count < DEP_MAX_NUM);
-    if (thread_vlog_entry->dep_count == 0) {
-      thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = thread_vlog_entry->ts | (1UL<<63);
-      thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2+1] = 0;
-    }
-    thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2] = lock_val | 0x1;
-    thread_vlog_entry->group_dep_buffer[thread_vlog_entry->group_dep_count*2+1] = dep_offset;
-    thread_vlog_entry->group_dep_count++;
-    thread_vlog_entry->dep_count++;
+    DepIndex &dep_nd = thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count];
+    assert(dep_nd.dep_cnt < DEP_MAX_NUM);
+    
+    // add dep trace
+    thread_vlog_entry->dep_set.insert(dep_ts);
 
-    thread_vlog_entry->group_dep_buffer[(thread_vlog_entry->group_dep_count-thread_vlog_entry->dep_count)*2+1] = thread_vlog_entry->dep_count;
+    dep_nd.deps[dep_nd.dep_cnt*3] = dep_ts;
+    dep_nd.deps[dep_nd.dep_cnt*3+1] = dep_thread_id;
+    dep_nd.deps[dep_nd.dep_cnt*3+2] = dep_offset;
+    dep_nd.dep_cnt ++;
+
+    // insert to vlog;
+    uint64_t log_count = thread_vlog_entry->log_count;
+
+    thread_vlog_entry->buffer[log_count * 2] = dep_ts & (1UL << 63);
+    thread_vlog_entry->buffer[log_count * 2 + 1] = dep_offset;
+    thread_vlog_entry->log_count ++;
   }
 }

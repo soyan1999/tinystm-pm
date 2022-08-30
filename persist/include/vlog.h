@@ -7,6 +7,7 @@
 #include <mutex>
 #include <chrono>
 #include <atomic>
+#include <unordered_set>
 #include "plog.h"
 #include "pmem.h"
 #include "page.h"
@@ -32,15 +33,28 @@
 // extern "C" {
 // #endif
 
+struct DepIndex {
+  static const int dep_max = DEP_MAX_NUM;
+  uint64_t ts;
+  uint64_t log_off;
+  uint64_t dep_cnt;
+  uint64_t *deps;
+  DepIndex():dep_cnt(0) {
+    deps = (uint64_t *) malloc(dep_max*3*sizeof(uint64_t));
+  }
+  ~DepIndex() {
+    free(deps);
+  }
+};
 
 typedef struct pstm_vlog {
   uint64_t ts;
-  uint32_t log_count;
-  uint32_t dep_count;
+  uint64_t log_count;
   uint64_t thread_id;
   std::atomic_uint64_t state;
-  uint64_t group_dep_count;
-  uint64_t *group_dep_buffer;
+  uint64_t group_tx_count;
+  std::unordered_set<uint64_t> dep_set;
+  DepIndex dep_indexs[GROUP_SIZE];
   uint64_t *buffer;
 } pstm_vlog_t;
 

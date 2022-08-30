@@ -42,6 +42,8 @@ class LogFlusher {
   int flusher_id;
   log_root_t *log_root_ptr;// TODO: update log_root after flush
   void *log_start_ptr;
+  
+  pstm_vlog_t *local_vlog;
 
   ReadyVlogCollecter *ready_vlog_collecter;
   // std::vector<FreeVlogCollecter*> free_vlog_collecters;
@@ -80,6 +82,7 @@ class LogFlusher {
     // oldest_no_persist_ts = 0;
     last_persist_ts = 0;
     replay_offset = 0;
+    local_vlog = NULL;
 
     log_root_ptr = (log_root_t*)ptr_add(pstm_nvram_logs_root_ptr, flusher_id*sizeof(log_root_t)); 
     ready_vlog_collecter = ready_vlog_collecters[flusher_id];
@@ -104,18 +107,19 @@ class LogFlusher {
   }
 
   uint64_t get_log_offset(uint64_t ts) {
-    uint64_t start_off;
-    uint64_t start_ts, log_count, dep_count;
-    if (last_persist_ts >= ts) return UINT64_MAX;
-    start_off = last_persist_offset;
-    start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
-    while (start_ts < ts && last_persist_ts < ts) {
-      log_count = *((uint64_t *)(gen_plog_ptr(start_off)) + 1);
-      start_off += (log_count&UINT32_MAX) * 16 + 16;
-      start_ts = *((uint64_t *)(gen_plog_ptr(start_off)));
+    if (last_persist_ts.load() >= ts) return UINT64_MAX;
+    uint64_t group_cnt = local_vlog->group_tx_count;
+    
+    for (int i = 0; i < group_cnt; i ++) {
+      if (local_vlog->dep_indexs[i].ts > ts) break;
+      else if (local_vlog->dep_indexs[i].ts == ts) {
+        uint64_t ret = local_vlog->dep_indexs[i].log_off;
+        if (last_persist_ts.load() < ts) return ret;
+        else return UINT64_MAX;
+      } 
     }
-    if (start_ts == ts) return start_off;
-    else return UINT64_MAX;
+
+    return UINT64_MAX;
   }
 
   void write_entry(void *entry, uint64_t size) {
@@ -180,24 +184,11 @@ class LogFlusher {
     #endif
   }
 
-  uint64_t flush_tx(uint64_t offset) {
-    uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1), dep_count;
-    dep_count = log_count >> 32;
-    log_count = log_count&UINT32_MAX;
-    // for (size_t i = log_count; i < log_count+dep_count; i ++) {
-    //   uint64_t lock_val = *((uint64_t*)gen_plog_ptr(offset) + 2*(i+1));
-    //   // dep chain
-    //   #ifdef TRACE_DEP_1
-    //   if (lock_val & 0x1) {
-    //     uint64_t dep_ts = lock_val >> 9;
-    //     int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
-    //     if (dep_thread_id != flusher_id && flushers[flusher_id]->last_persist_ts < dep_ts) {
-    //       uint64_t dep_offset = flushers[flusher_id]->get_log_offset(dep_ts);
-    //       if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
-    //     }
-    //   }
-    //   #endif
-    // }
+  uint64_t flush_tx(uint64_t ts, uint64_t offset) {
+    if (ts == 0) ts = *((uint64_t*)gen_plog_ptr(offset));
+    if (last_persist_ts.load() >= ts) return 0;
+    uint64_t log_count = *((uint64_t*)gen_plog_ptr(offset) + 1);
+
     uint64_t flush_size = (log_count+1)*16;
     assert(flush_size <= log_area_size);
     if (offset % log_area_size + flush_size <= log_area_size) {
@@ -207,6 +198,20 @@ class LogFlusher {
       FLUSH_BLOCK(gen_plog_ptr(offset), ptr_add(log_start_ptr, log_area_size));
       flush_size -= log_area_size - offset%log_area_size;
       FLUSH_BLOCK(log_start_ptr, gen_plog_ptr(flush_size));
+    }
+
+    uint64_t tx_group_cnt = local_vlog->group_tx_count;
+    if (last_persist_ts.load() >= ts) return 0;
+
+    for (int i = 0; i < tx_group_cnt; i ++) {
+      if (local_vlog->dep_indexs[i].ts > ts) break;
+      else if (local_vlog->dep_indexs[i].ts == ts) {
+        DepIndex &dep_nd = local_vlog->dep_indexs[i];
+
+        for (int j = 0; j < dep_nd.dep_cnt && last_persist_ts.load() >= ts; j ++) {
+          flushers[dep_nd.deps[j*3+1]]->flush_tx(dep_nd.deps[j*3], dep_nd.deps[j*3+2]);
+        }
+      }
     }
 
     return offset+flush_size;
@@ -228,22 +233,20 @@ class LogFlusher {
         FLUSH_BLOCK(log_start_ptr, gen_plog_ptr(flush_size));
       }
       #ifdef TRACE_DEP
-      if (thread_vlog_entry->group_dep_count > 0) {
-        for (int i = 0, j = 0; i < (int)thread_vlog_entry->group_dep_count; i++) {
-          if (j == 0) {
-            j = thread_vlog_entry->group_dep_buffer[i*2+1];
-          }
-          else {
-            uint64_t lock_val = thread_vlog_entry->group_dep_buffer[i*2], dep_offset = thread_vlog_entry->group_dep_buffer[i*2+1], dep_ts = lock_val >> 9;
-            int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
-            if (dep_thread_id != flusher_id && flushers[flusher_id]->last_persist_ts < dep_ts) {
-              uint64_t dep_offset = flushers[flusher_id]->get_log_offset(dep_ts);
-              if (dep_offset != UINT64_MAX) flushers[flusher_id]->flush_tx(dep_offset);
-            }
-            j--;
-          }
+      std::unordered_set<uint64_t> flushed_ts;
+
+      for (int i = 0; i < thread_vlog_entry->group_tx_count; i ++) {
+        DepIndex &dep_nd = local_vlog->dep_indexs[i];
+        for (int j = 0; j < dep_nd.dep_cnt; j ++) {
+          uint64_t dep_ts = dep_nd.deps[j*3];
+          if (flushed_ts.find(dep_ts) != flushed_ts.end()) continue;
+
+          flushed_ts.insert(dep_ts);
+          flushers[dep_nd.deps[j*3+1]]->flush_tx(dep_ts, dep_nd.deps[j*3+2]);
         }
       }
+      
+      
       #endif
       #endif
       FENCE_PREV_FLUSHES();
@@ -284,6 +287,10 @@ class LogFlusher {
 
   void do_flush_vlog(pstm_vlog_t *vlog) {
     if (!wait_vlog_committed(vlog)) return;
+    if (local_vlog == NULL) local_vlog = vlog;
+
+    local_vlog->dep_indexs[local_vlog->group_tx_count-1].log_off = flush_offset;
+
     write_entry(&(vlog->ts), 2*sizeof(uint64_t));
     write_entry(vlog->buffer,vlog->log_count*2*sizeof(uint64_t));
     tx_count ++;
@@ -294,7 +301,7 @@ class LogFlusher {
       }
       #endif
       flush_entry();
-      vlog->group_dep_count = 0;
+      vlog->group_tx_count = 0;
       tx_count = 0;
     }
 
