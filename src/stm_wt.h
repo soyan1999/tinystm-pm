@@ -29,7 +29,7 @@
 #include "persist.h"
 
 static INLINE int
-stm_wt_validate(stm_tx_t *tx)
+stm_wt_validate(stm_tx_t *tx, int commit)
 {
   r_entry_t *r;
   int i;
@@ -42,6 +42,7 @@ stm_wt_validate(stm_tx_t *tx)
   for (i = tx->r_set.nb_entries; i > 0; i--, r++) {
     /* Read lock */
     l = ATOMIC_LOAD(r->lock);
+    if(commit) pstm_trace_dep(l);
     /* Unlocked and still the same version? */
     if (LOCK_GET_OWNED(l)) {
       /* Do we own the lock? */
@@ -71,7 +72,7 @@ stm_wt_validate(stm_tx_t *tx)
         /* Other version: cannot validate */
         return 0;
       }
-      pstm_trace_dep(l);
+      // if(commit) pstm_trace_dep(l);
       /* Same version: OK */
     }
   }
@@ -101,7 +102,7 @@ stm_wt_extend(stm_tx_t *tx)
     return 0;
   }
   /* Try to validate read set */
-  if (stm_wt_validate(tx)) {
+  if (stm_wt_validate(tx, 0)) {
     /* It works: we can extend until now */
     tx->end = now;
     return 1;
@@ -556,7 +557,7 @@ stm_wt_commit(stm_tx_t *tx)
 #endif /* IRREVOCABLE_ENABLED */
 
   /* Try to validate (only if a concurrent transaction has committed since tx->start) */
-  if (unlikely(tx->start != t - 1 && !stm_wt_validate(tx))) {
+  if (unlikely(tx->start != t - 1 && !stm_wt_validate(tx, 1))) {
     /* Cannot commit */
     stm_rollback(tx, STM_ABORT_VALIDATE);
     return 0;
@@ -566,7 +567,9 @@ stm_wt_commit(stm_tx_t *tx)
   release_locks:
 #endif /* IRREVOCABLE_ENABLED */
 
+  #ifdef IMM_PERSIST
   pstm_before_tx_commit(t);
+  #endif
   /* Make sure that the updates become visible before releasing locks */
   ATOMIC_MB_WRITE;
   /* Drop locks and set new timestamp */
@@ -580,6 +583,9 @@ stm_wt_commit(stm_tx_t *tx)
   /* Make sure that all lock releases become visible */
   /* TODO: is ATOMIC_MB_WRITE required? */
   ATOMIC_MB_WRITE;
+  #ifndef IMM_PERSIST
+  pstm_before_tx_commit(t);
+  #endif
 end:
   return t;
 }

@@ -53,8 +53,8 @@ typedef struct pstm_vlog {
   uint64_t thread_id;
   std::atomic_uint64_t state;
   uint64_t group_tx_count;
-  std::unordered_set<uint64_t> dep_set;
-  DepIndex dep_indexs[GROUP_SIZE];
+  // std::unordered_set<uint64_t> dep_set;
+  DepIndex dep_indexs[GROUP_SIZE_MAX*5];
   uint64_t *buffer;
 } pstm_vlog_t;
 

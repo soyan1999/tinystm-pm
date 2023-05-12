@@ -1325,9 +1325,9 @@ int_stm_exit_thread(stm_tx_t *tx)
   gc_free(tx, t);
   gc_exit_thread();
 #else /* ! EPOCH_GC */
-  xfree(tx->r_set.entries);
-  xfree(tx->w_set.entries);
-  xfree(tx);
+  // xfree(tx->r_set.entries);
+  // xfree(tx->w_set.entries);
+  // xfree(tx);
 #endif /* ! EPOCH_GC */
 
   tls_set_tx(NULL);

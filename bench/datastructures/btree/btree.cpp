@@ -11,9 +11,9 @@
 
 
 #define DEFAULT_DURATION                10000
-#define DEFAULT_INITIAL                 256
+#define DEFAULT_INITIAL                 0xFFFF
 #define DEFAULT_NB_THREADS              1
-#define DEFAULT_RANGE                   0xFFFF
+#define DEFAULT_RANGE                   0xFFFFF
 #define DEFAULT_SEED                    0
 #define DEFAULT_UPDATE                  20
 

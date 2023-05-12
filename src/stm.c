@@ -985,7 +985,7 @@ int_stm_set_irrevocable(stm_tx_t *tx, int serial)
       return 0;
     }
 #elif DESIGN == WRITE_THROUGH
-    if (!stm_wt_validate(tx)) {
+    if (!stm_wt_validate(tx,0)) {
       stm_rollback(tx, STM_ABORT_VALIDATE);
       return 0;
     }

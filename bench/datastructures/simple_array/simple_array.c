@@ -13,7 +13,7 @@
 #define DEFAULT_DURATION                10000
 #define DEFAULT_INITIAL                 256
 #define DEFAULT_NB_THREADS              1
-#define DEFAULT_RANGE                   0xFFFF
+#define DEFAULT_RANGE                   0xFFFFFFF
 #define DEFAULT_SEED                    0
 #define DEFAULT_UPDATE                  20
 
@@ -42,7 +42,7 @@ static volatile int stop;
 
 uint64_t **set = NULL;
 
-#define N_BUCKETS 1024
+#define N_BUCKETS 0xFFFF
 // List* bucket[N_BUCKETS];
 
 // TM_CALLABLE

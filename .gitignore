@@ -66,3 +66,8 @@ bench/stamp/labyrinth/labyrinth
 bench/stamp/ssca2/ssca2
 bench/stamp/vacation/vacation
 bench/stamp/yada/yada
+
+*.txt
+*.perf
+perf*
+

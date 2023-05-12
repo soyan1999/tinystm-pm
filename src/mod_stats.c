@@ -178,7 +178,9 @@ static void mod_stats_on_commit(void *arg)
 
   stats = (mod_stats_data_t *)stm_get_specific(mod_stats_key);
   assert(stats != NULL);
-  stats->commits++;
+  static unsigned long ss_commit = 0;
+  ss_commit ++;
+  stats->commits = ss_commit;
   stats->retries_acc += stats->retries;
   stats->retries_cnt++;
   if (stats->retries_min > stats->retries)

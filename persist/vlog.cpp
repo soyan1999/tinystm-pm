@@ -1,7 +1,7 @@
 #include "vlog.h"
 #include "page.h"
 
-__thread pstm_vlog_t *thread_vlog_entry;
+__thread pstm_vlog_t *thread_vlog_entry = NULL;
 FreeVlogCollecter **free_vlog_collecters;
 ReadyVlogCollecter **ready_vlog_collecters;
 __thread int thread_id;
@@ -24,6 +24,10 @@ void pstm_vlog_init(int thread_num) {
       vlog->ts = 0;
       vlog->log_count = 0;
       vlog->thread_id = i;
+      for (int k = 0; k < GROUP_SIZE_MAX*5; k ++) {
+        vlog->dep_indexs[k].deps = (uint64_t *) malloc(DEP_MAX_NUM*3*sizeof(uint64_t));
+        memset(vlog->dep_indexs[k].deps, 0, DEP_MAX_NUM*3*sizeof(uint64_t));
+      }
       free_vlog_collecters[i]->put(vlog);
     }
   }
@@ -36,13 +40,13 @@ void pstm_vlog_init_thread(int threadID) {
   // thread_id = (int)__sync_fetch_and_add(&thread_count,1);
   thread_id = threadID;
   flusher_id = thread_id % flusher_count;
-  if (FLUSHER_TYPE == 0) thread_vlog_entry = free_vlog_collecters[thread_id]->get();
+  if (FLUSHER_TYPE == 0 && thread_vlog_entry == NULL) thread_vlog_entry = free_vlog_collecters[thread_id]->get();
 }
 
 void pstm_vlog_exit_thread() {
   if (thread_vlog_entry != NULL) {
-    free(thread_vlog_entry->buffer);
-    free(thread_vlog_entry);
+    // free(thread_vlog_entry->buffer);
+    // free(thread_vlog_entry);
   }
 }
 
@@ -51,8 +55,9 @@ void pstm_vlog_begin() {
     thread_vlog_entry = free_vlog_collecters[thread_id]->get();
   }
   thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count].dep_cnt = 0;
+  thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count].log_off = pstm_plog_get_log_off();
   thread_vlog_entry->log_count = 0;
-  thread_vlog_entry->dep_set.clear();
+  // thread_vlog_entry->dep_set.clear();
   thread_vlog_entry->state.store(VLOG_INVAILD);
 }
 
@@ -83,6 +88,9 @@ void pstm_vlog_before_gen_ts() {
 
 void pstm_vlog_after_gen_ts(uint64_t ts) {
   thread_vlog_entry->ts = ts;
+  #ifdef TRACE_DEP
+  thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count].ts = ts;
+  #endif
   thread_vlog_entry->state.store(VLOG_PRE_COMMIT);
   if (FLUSHER_TYPE != 0 && thread_vlog_entry->log_count != 0) {
     ready_vlog_collecters[flusher_id]->put(thread_vlog_entry);
@@ -97,7 +105,7 @@ void pstm_vlog_after_gen_ts(uint64_t ts) {
 void pstm_vlog_abort() {
   if (FLUSHER_TYPE == 0 || thread_vlog_entry->state != VLOG_PRE_COMMIT || thread_vlog_entry->log_count == 0) {
     thread_vlog_entry->log_count = 0;
-    thread_vlog_entry->dep_set.clear();
+    // thread_vlog_entry->dep_set.clear();
     thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count].dep_cnt = 0;
     thread_vlog_entry->state.store(VLOG_INVAILD);
   }
@@ -131,30 +139,31 @@ void pstm_vlog_free() {
   for (int i = 0; i < thread_count; i ++) {
     while (!free_vlog_collecters[i]->empty()) {
       pstm_vlog_t *vlog = free_vlog_collecters[i]->get();
-      free(vlog->buffer);
-      free(vlog);
+      // free(vlog->buffer);
+      // free(vlog);
     }
-    delete free_vlog_collecters[i];
+    // delete free_vlog_collecters[i];
   }
   free(free_vlog_collecters);
 }
 
 void pstm_vlog_trace_dep(uint64_t lock_val) {
   int dep_thread_id = (lock_val >> 4) & ((1 << 5) - 1);
+  // remove dep in dram
   if (!(dep_thread_id & 1)) return;
   dep_thread_id >>= 1;
-  if (dep_thread_id == thread_id) return;
+  // if (dep_thread_id == thread_id) return;
   uint64_t dep_ts = lock_val >> 9;
   if (dep_ts == 0) return;
   // replace by linear searching?
-  if (thread_vlog_entry->dep_set.find(dep_ts) != thread_vlog_entry->dep_set.end()) return;
+  // if (thread_vlog_entry->dep_set.find(dep_ts) != thread_vlog_entry->dep_set.end()) return;
   uint64_t dep_offset = pstm_plog_trace_dep(dep_thread_id, dep_ts);
   if (dep_offset != UINT64_MAX) {
     DepIndex &dep_nd = thread_vlog_entry->dep_indexs[thread_vlog_entry->group_tx_count];
     assert(dep_nd.dep_cnt < DEP_MAX_NUM);
     
     // add dep trace
-    thread_vlog_entry->dep_set.insert(dep_ts);
+    // thread_vlog_entry->dep_set.insert(dep_ts);
 
     dep_nd.deps[dep_nd.dep_cnt*3] = dep_ts;
     dep_nd.deps[dep_nd.dep_cnt*3+1] = dep_thread_id;
@@ -164,8 +173,10 @@ void pstm_vlog_trace_dep(uint64_t lock_val) {
     // insert to vlog;
     uint64_t log_count = thread_vlog_entry->log_count;
 
-    thread_vlog_entry->buffer[log_count * 2] = dep_ts & (1UL << 63);
+    #ifdef DEP_PERSIST
+    thread_vlog_entry->buffer[log_count * 2] = dep_ts | (1UL << 63);
     thread_vlog_entry->buffer[log_count * 2 + 1] = dep_offset;
     thread_vlog_entry->log_count ++;
+    #endif
   }
 }

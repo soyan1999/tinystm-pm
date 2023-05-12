@@ -22,18 +22,18 @@
 // #define USE_NTSTORE
 #define GROUP_SIZE_MAX 32
 #define GROUP_SIZE 1 //UINT64_MAX
-// #define AUTO_GROUP_SIZE
+#define AUTO_GROUP_SIZE
 
 // dep_trace related
-// #define TRACE_DEP
+#define TRACE_DEP
 // #define HASH_DEDUP
-// #define DEP_FORCE // enable force flush
-// #define DEP_PERSIST
+#define DEP_FORCE // enable force flush
+#define DEP_PERSIST
 
 // measure related
-// #define TIME_MEASURE
+#define TIME_MEASURE
 // #define MEASURE_FLUSH
-// #define DROP_CNT
+#define DROP_CNT
 
 
 // #ifdef __cplusplus
